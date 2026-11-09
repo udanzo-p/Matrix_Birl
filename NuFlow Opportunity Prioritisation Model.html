@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>NuFlow Opportunity Prioritisation Model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout concept: a project spec binder. Sticky tab strip, one view at a time, monospace for every figure, evidence tags on every number, a slide-notes button on every section. */
+:root{
+  --bg:#edf0f3; --surface:#fbfcfd; --surface2:#f1f4f6; --ink:#0d1b26; --ink2:#46535e; --muted:#6f7c86; --line:#d5dce2;
+  --accent:#0b4f6c; --accent-ink:#ffffff;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#8a5cd6; --neutral:#9aa6af;
+  --f1:#86b6ef; --f2:#2a78d6; --f3:#104281;
+  --good:#006300; --t-src:#0b4f6c; --t-der:#5b4bb7; --t-ass:#9a5b00; --t-unv:#a13030;
+  --warm:#b45309; --warm-bg:#fff4e6;
+  --font-d:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --font-b:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --font-m:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0c1217; --surface:#131b22; --surface2:#19232b; --ink:#e7edf1; --ink2:#b4c0c8; --muted:#8895a0; --line:#27333c;
+  --accent:#7cc8e8; --accent-ink:#06222e;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#9b78e8; --neutral:#5b6872;
+  --f1:#86b6ef; --f2:#3987e5; --f3:#1c5cab;
+  --good:#0ca30c; --t-src:#7cc8e8; --t-der:#a99cf2; --t-ass:#e0a23d; --t-unv:#ef8a8a;
+  --warm:#f0a35a; --warm-bg:#2a2016; color-scheme:dark}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 60px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-b);font-size:15px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-top:env(safe-area-inset-top,0px);padding-bottom:calc(56px + env(safe-area-inset-bottom,0px))}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--bg)}
+.wrap{max-width:1140px;margin:0 auto}
+a{color:var(--accent)}
+h1,h2,h3,h4{font-family:var(--font-d);line-height:1.12;margin:0;text-wrap:balance;letter-spacing:-.01em}
+h1{font-size:clamp(28px,5vw,46px);font-weight:800}
+h2{font-size:clamp(22px,3vw,30px);font-weight:700}
+h3{font-size:17px;font-weight:700}
+h4{font-size:14px;font-weight:700;color:var(--ink2)}
+p{margin:0}
+.mono,.num{font-family:var(--font-m);font-variant-numeric:tabular-nums}
+.eyebrow{font-family:var(--font-m);font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+/* nav */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);border-bottom:1px solid var(--line);margin:0 calc(-1*max(16px,env(safe-area-inset-left,0px)));padding:0 max(16px,env(safe-area-inset-left,0px))}
+.bar-in{max-width:1140px;margin:0 auto;display:flex;align-items:center;gap:16px;padding-block:10px}
+.brand{font-family:var(--font-d);font-weight:800;font-size:17px;white-space:nowrap;display:flex;align-items:center;gap:9px}
+.brand i{width:12px;height:12px;border-radius:50% 50% 50% 0;background:var(--s1);display:inline-block;transform:rotate(-45deg)}
+.brand small{font-family:var(--font-m);font-weight:500;font-size:11px;color:var(--muted);margin-left:2px}
+nav{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;min-width:0}
+nav::-webkit-scrollbar{display:none}
+nav a{padding:7px 9px;border-radius:6px;text-decoration:none;color:var(--ink2);font-size:13.5px;font-weight:500;white-space:nowrap}
+nav a:hover{background:var(--surface2)}
+nav a[aria-current="page"]{background:var(--ink);color:var(--bg)}
+nav a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.view{padding-top:30px;display:grid;gap:28px;grid-template-columns:minmax(0,1fr)}
+.g2>*,.g3>*,.g4>*{min-width:0}
+.lead{max-width:64ch;color:var(--ink2);font-size:16.5px}
+/* panels */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px}
+.panel.flat{background:transparent;border-style:dashed}
+.panel.warm{background:var(--warm-bg);border-color:var(--warm)}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr))}
+.col,.panel,.tw,.grid>*,.steps>*,.step>*{min-width:0;max-width:100%}
+.sec-h{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.sec-h p{color:var(--ink2);max-width:72ch}
+.sec-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.sec-top .sec-h{margin-bottom:0;flex:1 1 420px}
+/* tags */
+.tag{font-family:var(--font-m);font-style:normal;font-size:10px;letter-spacing:.06em;text-transform:uppercase;border:1px solid currentColor;border-radius:4px;padding:0 5px;margin-left:7px;white-space:nowrap;vertical-align:middle}
+.tag.src{color:var(--t-src)} .tag.der{color:var(--t-der)} .tag.ass{color:var(--t-ass)} .tag.unv{color:var(--t-unv)}
+/* big numbers */
+.kpi{display:flex;flex-direction:column;gap:4px;padding:18px;border-radius:10px;background:var(--surface);border:1px solid var(--line)}
+.kpi .v{font-family:var(--font-d);font-weight:800;font-size:clamp(28px,4.2vw,42px);line-height:1}
+.kpi .v small{font-size:.42em;font-weight:600;color:var(--muted);margin-left:4px}
+.kpi .l{font-size:13px;color:var(--ink2)}
+.kpi.dark{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.kpi.dark .l{color:var(--bg);opacity:.78}
+.kpi.sm .v{font-size:clamp(22px,3vw,30px)}
+/* hero */
+.hero{display:grid;gap:18px;padding:6px 0 4px;background-image:radial-gradient(var(--line) 1px,transparent 1px);background-size:18px 18px;background-position:-6px -6px;border-radius:10px}
+.hero>*{background:transparent}
+.hero h1{max-width:22ch}
+/* slide bar */
+.slide{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 16px;border-radius:10px;background:var(--surface2);border:1px dashed var(--line)}
+.slide .eyebrow{display:block;margin-bottom:3px}
+.slide b{font-family:var(--font-d);font-size:16px;font-weight:700}
+.btn{font:600 13px var(--font-b);border:1px solid var(--ink);background:transparent;color:var(--ink);padding:7px 13px;border-radius:7px;cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--surface)}
+.btn.ok{border-color:var(--good);color:var(--good)}
+.copybox{grid-column:1/-1}
+.copybox textarea{width:100%;min-height:150px;font:12.5px/1.45 var(--font-m);border:1px solid var(--line);border-radius:7px;padding:10px;background:var(--surface);color:var(--ink);resize:vertical}
+@media (max-width:560px){.slide{grid-template-columns:1fr}}
+/* lists */
+.finds{display:grid;gap:0;counter-reset:f;border-top:1px solid var(--line);padding:0;margin:0}
+.finds li{list-style:none;display:grid;grid-template-columns:34px 1fr;gap:10px;padding:14px 0;border-bottom:1px solid var(--line)}
+.finds li::before{counter-increment:f;content:counter(f);font-family:var(--font-m);color:var(--muted);font-size:13px;padding-top:2px}
+.finds b{font-weight:600}
+ul.tight{margin:0;padding-left:18px;color:var(--ink2);font-size:13.5px;display:grid;gap:6px}
+/* tables */
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--font-m);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500;background:var(--surface2);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td.n,th.n{text-align:right;font-family:var(--font-m);font-variant-numeric:tabular-nums;white-space:nowrap}
+td.c{text-align:center}
+/* controls */
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:500 13px var(--font-b);border:1px solid var(--line);background:var(--surface);color:var(--ink2);padding:6px 11px;border-radius:99px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.sl{display:grid;grid-template-columns:minmax(0,1fr) minmax(90px,150px) 84px;gap:10px;align-items:center;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13.5px}
+.sl output{font-family:var(--font-m);font-size:12.5px;text-align:right}
+.sl input[type=range]{width:100%;accent-color:var(--accent)}
+@media (max-width:560px){.sl{grid-template-columns:1fr 84px}.sl input{grid-column:1/-1;order:3}}
+/* partner cards */
+.pc{display:grid;grid-template-columns:44px minmax(0,1fr);gap:14px;padding:16px;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.pc.warm{border-left:4px solid var(--warm)}
+.rk{font-family:var(--font-d);font-weight:800;font-size:22px;color:var(--muted);text-align:center;line-height:1}
+.rk small{display:block;font-family:var(--font-m);font-size:10px;font-weight:500;margin-top:4px}
+.pc h3{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.pill{font:500 11.5px var(--font-m);padding:1px 8px;border-radius:99px;border:1px solid var(--line);color:var(--ink2);background:var(--surface2);white-space:nowrap}
+.pill.open{color:var(--good);border-color:var(--good)}
+.pill.fixed{color:var(--t-unv);border-color:var(--t-unv)}
+.pill.none{color:var(--t-der);border-color:var(--t-der)}
+.pill.unknown{color:var(--muted)}
+.pill.ref{color:var(--t-ass);border-color:var(--t-ass)}
+.pill.warm{color:var(--warm);border-color:var(--warm);background:var(--warm-bg)}
+.pc dl{margin:10px 0 0;display:grid;grid-template-columns:92px minmax(0,1fr);gap:6px 12px;font-size:13.5px}
+.pc dt{font-family:var(--font-m);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding-top:2px}
+.pc dd{margin:0}
+.score{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap}
+.score .bar2{flex:1;height:8px;border-radius:4px;background:var(--surface2);overflow:hidden;max-width:260px;min-width:120px}
+.score .bar2 i{display:block;height:100%;background:var(--s1);border-radius:4px}
+.mini{display:flex;gap:6px;font-family:var(--font-m);font-size:11.5px;color:var(--ink2);flex-wrap:wrap}
+.mini span{border:1px solid var(--line);border-radius:4px;padding:0 6px}
+.plist{display:grid;gap:12px}
+/* svg charts */
+svg text{font-family:var(--font-b);fill:var(--ink2)}
+svg .m{font-family:var(--font-m)}
+.chart{width:100%;height:auto;display:block}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--ink2);margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+#tip{position:fixed;z-index:60;pointer-events:none;background:var(--ink);color:var(--bg);font:12.5px/1.4 var(--font-b);padding:7px 10px;border-radius:6px;max-width:280px;opacity:0;transition:opacity .08s}
+details.tbl summary{cursor:pointer;font-size:13px;color:var(--accent);margin-top:10px}
+.note{font-size:13px;color:var(--ink2);border-left:3px solid var(--line);padding:2px 0 2px 12px}
+.note.warn{border-left-color:var(--t-unv)}
+.note.good{border-left-color:var(--good)}
+.steps{display:grid;gap:12px}
+.step{display:grid;grid-template-columns:100px minmax(0,1fr);gap:16px;padding:16px;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.step .when{font-family:var(--font-m);font-size:12px;color:var(--muted)}
+.step .when b{display:block;font-family:var(--font-d);font-size:19px;color:var(--ink);font-weight:800}
+.step ul{margin:8px 0 0;padding-left:18px;color:var(--ink2);font-size:13.5px}
+/* heat grid */
+.heat{display:grid;gap:4px;font-size:12.5px;overflow-x:auto}
+.heat .hc{padding:8px 6px;border-radius:5px;text-align:center;font-family:var(--font-m);font-size:12px}
+.heat .hh{font-family:var(--font-m);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:6px 4px;text-align:center}
+.heat .hr{font-weight:600;padding:8px 6px;display:flex;align-items:center}
+.h3{background:var(--s1);color:#fff}.h2{background:color-mix(in srgb,var(--s1) 55%,var(--surface));color:var(--ink)}.h1{background:color-mix(in srgb,var(--s1) 22%,var(--surface));color:var(--ink)}.h0{background:var(--surface2);color:var(--muted)}
+/* persona cards */
+.persona{display:grid;gap:6px;padding:14px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.persona h4{color:var(--ink);font-size:15px}
+.persona .q{font-style:italic;color:var(--ink2);font-size:13px}
+.persona ul{margin:0;padding-left:16px;font-size:13px;color:var(--ink2)}
+.pos{font-family:var(--font-d);font-size:clamp(18px,2.4vw,24px);font-weight:700;line-height:1.3;max-width:34ch}
+.badge{display:inline-block;font:600 11px var(--font-m);padding:2px 8px;border-radius:4px;background:var(--ink);color:var(--bg);letter-spacing:.04em}
+@media (max-width:560px){.step{grid-template-columns:1fr;gap:6px}.pc{grid-template-columns:1fr}.rk{text-align:left}.rk small{display:inline;margin-left:6px}.pc dl{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media print{.bar,#tip,.btn{display:none!important}.view[hidden]{display:grid!important}.view{break-before:page}}
+
+/* matrix */
+.mx{display:grid;gap:4px;font-size:12.5px;overflow-x:auto}
+.mx .hh{font-family:var(--font-m);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:6px 4px;text-align:center}
+.mx .hr{font-weight:600;padding:8px 6px;display:flex;align-items:center;font-size:12.5px}
+.mx .mc{padding:8px 6px;border-radius:5px;text-align:center;font-family:var(--font-m);font-size:12px;min-width:0}
+.mx .mc small{display:block;font-size:10px;opacity:.8}
+.r0{background:var(--surface2);color:var(--muted)}.r1{background:color-mix(in srgb,var(--s3) 22%,var(--surface));color:var(--ink)}.r2{background:color-mix(in srgb,var(--s3) 50%,var(--surface));color:var(--ink)}.r3{background:var(--s3);color:#fff}
+.w1{background:color-mix(in srgb,var(--s1) 18%,var(--surface))}.w2{background:color-mix(in srgb,var(--s1) 42%,var(--surface))}.w3{background:color-mix(in srgb,var(--s1) 70%,var(--surface));color:#fff}.w4{background:var(--s1);color:#fff}
+/* segment cards */
+.seg{display:grid;grid-template-columns:44px minmax(0,1fr);gap:14px;padding:16px;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.seg .ic{font-family:var(--font-d);font-weight:800;font-size:20px;color:var(--muted);text-align:center;line-height:1}
+.seg .ic small{display:block;font-family:var(--font-m);font-size:10px;font-weight:500;margin-top:4px}
+.seg dl{margin:8px 0 0;display:grid;grid-template-columns:110px minmax(0,1fr);gap:5px 12px;font-size:13.5px}
+.seg dt{font-family:var(--font-m);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding-top:2px}
+.seg dd{margin:0}
+@media (max-width:560px){.seg{grid-template-columns:1fr}.seg .ic{text-align:left}.seg dl{grid-template-columns:1fr}}
+/* dimension bars */
+.dim{display:grid;gap:6px;margin-bottom:14px}
+.dim .bar3{display:flex;height:34px;border-radius:6px;overflow:hidden;gap:2px}
+.dim .bar3 i{display:block;height:100%;font:11.5px var(--font-m);color:#fff;display:flex;align-items:center;justify-content:center;white-space:nowrap;overflow:hidden;min-width:0}
+.dim .dl{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.dim .dl b{font-size:14px}
+.dim .dl span{font-family:var(--font-m);font-size:12px;color:var(--ink2)}
+.ladder{display:grid;gap:3px}
+.ladder .lr{display:grid;grid-template-columns:140px minmax(0,1fr) 110px;gap:10px;align-items:center;font-size:12.5px}
+.ladder .lr i{display:block;height:14px;border-radius:3px}
+.ladder .lr .lv{font-family:var(--font-m);text-align:right}
+@media (max-width:560px){.ladder .lr{grid-template-columns:100px minmax(0,1fr) 80px}}
+.geo{display:grid;gap:8px;padding:16px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.geo h3{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.geo .kv{display:grid;grid-template-columns:118px minmax(0,1fr);gap:4px 10px;font-size:13px}
+.geo .kv dt{font-family:var(--font-m);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding-top:2px}
+.geo .kv dd{margin:0}
+
+/* prioritisation */
+.pm{display:grid;gap:3px;overflow-x:auto;font-size:12px}
+.pm .hh{font-family:var(--font-m);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding:6px 3px;text-align:center;line-height:1.25}
+.pm .hr{font-weight:600;padding:6px;display:flex;align-items:center;font-size:12.5px;line-height:1.25}
+.pm button.cell{font:inherit;border:1px solid transparent;border-radius:6px;padding:7px 4px;cursor:pointer;text-align:center;min-width:0;display:flex;flex-direction:column;gap:2px;align-items:center;justify-content:center;min-height:54px}
+.pm button.cell b{font-family:var(--font-m);font-size:13px}
+.pm button.cell small{font-family:var(--font-m);font-size:9.5px;letter-spacing:.03em;text-transform:uppercase}
+.pm button.cell[aria-pressed="true"]{outline:2px solid var(--ink);outline-offset:1px}
+.cl-qw{background:var(--s3);color:#fff}
+.cl-sb{background:var(--s1);color:#fff}
+.cl-fo{background:color-mix(in srgb,var(--s1) 22%,var(--surface));color:var(--ink)}
+.cl-dp{background:var(--surface2);color:var(--muted);border-color:var(--line)!important}
+.pill.qw{color:var(--s3);border-color:var(--s3)}.pill.sb{color:var(--s1);border-color:var(--s1)}.pill.fo{color:var(--ink2)}.pill.dp{color:var(--muted)}
+.rob{font-family:var(--font-m);font-size:10px;opacity:.85}
+.crit{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:8px}
+.crit .cc{border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--surface)}
+.crit .cc .s{font-family:var(--font-d);font-weight:800;font-size:24px;line-height:1}
+.crit .cc .n{font-size:12px;color:var(--ink2);margin-top:4px}
+.dots{display:inline-flex;gap:3px;vertical-align:middle}
+.dots i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.dots i.on{background:var(--ink)}
+.anchor td:first-child{font-family:var(--font-m);font-weight:600;text-align:center;width:46px}
+</style>
+</head>
+<body>
+<div class="bar"><div class="bar-in">
+  <div class="brand"><i></i>NuFlow Priorities <small>hypothesis model</small></div>
+  <nav aria-label="Sections">
+    <a id="t-answer" href="#answer">Answer</a>
+    <a id="t-rubric" href="#rubric">Rubric</a>
+    <a id="t-matrix" href="#matrix">Matrix</a>
+    <a id="t-portfolio" href="#portfolio">Portfolio</a>
+    <a id="t-adjacency" href="#adjacency">Adjacencies</a>
+    <a id="t-tests" href="#tests">Test plan</a>
+    <a id="t-evidence" href="#evidence">Evidence</a>
+  </nav>
+</div></div>
+
+<main class="wrap">
+
+<!-- ================= ANSWER ================= -->
+<section class="view" id="v-answer">
+  <div class="hero">
+    <span class="eyebrow">NuFlow by BirlaNu · opportunity sizing and prioritisation · qualitative framework · November 2026</span>
+    <h1>Win at home with what is ready, bet abroad where polymer is already allowed.</h1>
+    <p class="lead">A geography × product-category matrix scored on a rubric designed for this decision: seven criteria with anchored scales, weights you can change, two gates, and four calls on every cell (quick win, strategic bet, follow-on, deprioritise). Adjacencies are scored on their own, coarser scale. Every call is a hypothesis with a test and a kill criterion, not a verdict.</p>
+  </div>
+  <div class="slide" data-slide="answer"></div>
+  <div class="grid g4" id="kpis"></div>
+  <div>
+    <div class="sec-h"><h2>What the model says</h2></div>
+    <ol class="finds" id="finds"></ol>
+  </div>
+  <div class="grid g2">
+    <div class="panel col">
+      <h3>Top quick wins</h3>
+      <p style="font-size:13px;color:var(--ink2);margin:6px 0 10px">Ready product, open channel, entry in under 12 months. Ranked by combined score.</p>
+      <div class="tw"><table id="topqw"></table></div>
+    </div>
+    <div class="panel col">
+      <h3>Top strategic bets</h3>
+      <p style="font-size:13px;color:var(--ink2);margin:6px 0 10px">Attractive but gated by certification, channel or product work. Worth a capped investment to de-risk.</p>
+      <div class="tw"><table id="topsb"></table></div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="sec-h"><h3>How to read this</h3></div>
+    <ul class="tight">
+      <li><b>No hard data was supplied for most cells.</b> Scores combine sourced market facts (growth, certification, prices, networks) with analyst judgement. The Evidence tab tags every input; each cell shows a confidence level.</li>
+      <li><b>Each call is a hypothesis to be tested.</b> The Test plan tab gives the cheapest test that would confirm or kill it, with a budget and time box.</li>
+      <li><b>Robustness is shown, not assumed.</b> Each cell's call is re-run under 300 random weight sets (each weight ±50%). A cell marked 90% keeps its call in nine of ten.</li>
+      <li><b>Change the rubric, not the answer.</b> If you disagree, move the weights or thresholds on the Rubric tab; the matrix, portfolio and slide notes update.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================= RUBRIC ================= -->
+<section class="view" id="v-rubric" hidden>
+  <div class="sec-top"><div class="sec-h">
+    <span class="eyebrow">Scoring rubric · designed for a polymer-hybrid entrant</span>
+    <h2>Seven criteria, two axes, two gates</h2>
+    <p>The brief names five criteria. The rubric adds two: addressable size, because "opportunity sizing" needs a sense of scale, and right to win, because a market can be attractive and open while NuFlow still cannot serve it. Criteria are grouped into an attractiveness axis (is the prize worth it?) and an ease axis (can a new entrant get it?). Every criterion is scored 1 to 5 against written anchors, so two people scoring the same cell should land within a point.</p>
+  </div></div>
+  <div class="slide" data-slide="rubric"></div>
+  <div class="tw"><table id="crittab"></table></div>
+  <div class="grid g2">
+    <div class="panel col">
+      <h3>Weights</h3>
+      <p style="font-size:13px;color:var(--ink2);margin:6px 0 10px">Within each axis, weights sum to the axis. Defaults favour price realisation and channel access, the two criteria the 18% EBITDA plan is most sensitive to.</p>
+      <div id="wts"></div>
+      <div class="chips" style="margin-top:10px"><button class="chip" id="wreset" type="button">Reset to default weights</button></div>
+    </div>
+    <div class="panel col">
+      <h3>Classification rules and thresholds</h3>
+      <div id="thr"></div>
+      <div class="tw" style="margin-top:12px"><table>
+        <tr><th>Call</th><th>Rule</th><th>Meaning</th></tr>
+        <tr><td><span class="pill qw">Quick win</span></td><td>Ease ≥ <span class="num" data-t="qwE"></span> and attractiveness ≥ <span class="num" data-t="qwA"></span>, and both gates pass</td><td>Enter with what exists; revenue inside 12 months; fund from the plan</td></tr>
+        <tr><td><span class="pill sb">Strategic bet</span></td><td>Attractiveness ≥ <span class="num" data-t="sbA"></span> but not a quick win</td><td>Worth a capped, staged investment to remove the barrier; decide after a test</td></tr>
+        <tr><td><span class="pill fo">Follow-on</span></td><td>Neither, with attractiveness ≥ <span class="num" data-t="dpA"></span> and ease ≥ <span class="num" data-t="dpE"></span></td><td>Serve later with assets built for the quick wins; no dedicated spend</td></tr>
+        <tr><td><span class="pill dp">Deprioritise</span></td><td>Attractiveness &lt; <span class="num" data-t="dpA"></span>, or ease &lt; <span class="num" data-t="dpE"></span> without strategic-bet attractiveness</td><td>Do not pursue now; revisit on the stated trigger</td></tr>
+      </table></div>
+      <p class="note" style="margin-top:10px"><b>Gates.</b> A cell cannot be a quick win if regulatory ease is 2 or less (certification takes over a year) or channel access is 2 or less (no route without a major investment). Gates stop a high average hiding one blocking criterion.</p>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="sec-h"><h3>Why this rubric</h3></div>
+    <div class="tw"><table>
+      <tr><th>Design choice</th><th>Reason</th></tr>
+      <tr><td><b>1–5 anchored scales, not free scoring</b></td><td>Anchors tie a score to an observable fact (a CAGR band, a certification time, a gross-margin band), so scores can be challenged with evidence instead of opinion.</td></tr>
+      <tr><td><b>Ease criteria scored so that 5 is easy</b></td><td>Regulatory complexity and competitive intensity are reversed, so every criterion reads "higher is better" and the axes can be averaged without sign errors.</td></tr>
+      <tr><td><b>Two axes instead of one total</b></td><td>A single total hides whether a cell is good because it is easy or because it is big. Quick wins and strategic bets differ exactly on that split.</td></tr>
+      <tr><td><b>Price realisation anchored on gross margin</b></td><td>The plan's gate G0 needs at least 50% gross margin per SKU to clear 18% EBITDA. Bands are set around that line using the hero mixer's ₹1,299 landed cost.</td></tr>
+      <tr><td><b>Size on a log scale</b></td><td>Pools range from USD 5 mn to USD 2 bn. A linear scale would make every export market look identical and every India cell look small; each step up is roughly three times the one below.</td></tr>
+      <tr><td><b>Base score plus adjustment</b></td><td>Some criteria are mostly geographic (regulation, channel), some mostly category-driven (price, competition). Each cell starts from its geography's score, adds its category's adjustment, then applies a stated override where the combination behaves differently (shattafs in the GCC, bidet sprayers in the US).</td></tr>
+      <tr><td><b>Gates on regulation and channel</b></td><td>These two are the only criteria that can stop entry outright. Averages cannot be allowed to compensate for them.</td></tr>
+      <tr><td><b>Confidence and robustness shown separately</b></td><td>Confidence says how good the evidence is; robustness says how much the call depends on the weights. A low-confidence, low-robustness quick win is the first thing to test.</td></tr>
+      <tr><td><b>A different, coarser scale for adjacencies</b></td><td>Adjacencies are go / pilot / park decisions with few options and a different risk profile (customer concentration, payment terms, brand dilution). A 0–3 scale with explicit risk penalties avoids false precision there.</td></tr>
+    </table></div>
+  </div>
+</section>
+
+<!-- ================= MATRIX ================= -->
+<section class="view" id="v-matrix" hidden>
+  <div class="sec-top"><div class="sec-h">
+    <span class="eyebrow">Geography × product category</span>
+    <h2>Eleven geographies, eight categories, one call per cell</h2>
+    <p>Each cell shows the call, the combined score and its robustness. Select a cell to see every criterion score, the reason behind it, the indicative pool, the hypothesis and the test. Product categories map to NuFlow lines.</p>
+  </div></div>
+  <div class="slide" data-slide="matrix"></div>
+  <div class="panel">
+    <div class="chips" id="mview" style="margin-bottom:10px"></div>
+    <div class="pm" id="pm"></div>
+    <div class="legend" style="margin-top:10px"><span><i style="background:var(--s3)"></i>Quick win</span><span><i style="background:var(--s1)"></i>Strategic bet</span><span><i style="background:color-mix(in srgb,var(--s1) 22%,var(--surface))"></i>Follow-on</span><span><i style="background:var(--surface2);border:1px solid var(--line)"></i>Deprioritise</span><span class="rob">Small figure: robustness of the call under random weights</span></div>
+  </div>
+  <div class="panel" id="detail"></div>
+  <div class="grid">
+    <div class="panel col">
+      <h3>Product categories</h3>
+      <div class="tw" style="margin-top:8px"><table id="cattab"></table></div>
+    </div>
+    <div class="panel col">
+      <h3>Geographies</h3>
+      <div class="tw" style="margin-top:8px"><table id="geotab"></table></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PORTFOLIO ================= -->
+<section class="view" id="v-portfolio" hidden>
+  <div class="sec-top"><div class="sec-h">
+    <span class="eyebrow">Portfolio view · attractiveness vs ease</span>
+    <h2>Where the cells land, and in what order to take them</h2>
+    <p>Every cell plotted on the two axes; bubble area is the indicative pool. Filter by geography or category. Below, the sequence the calls imply and how effort should be split.</p>
+  </div></div>
+  <div class="slide" data-slide="portfolio"></div>
+  <div class="panel">
+    <div class="grid g2" style="align-items:start">
+      <div><div class="eyebrow" style="margin-bottom:6px">Geography</div><div class="chips" id="fg"></div></div>
+      <div><div class="eyebrow" style="margin-bottom:6px">Category</div><div class="chips" id="fc"></div></div>
+    </div>
+    <svg class="chart" id="bub" viewBox="0 0 760 520" role="img" aria-label="Cells plotted by attractiveness and ease" style="margin-top:12px"></svg>
+  </div>
+  <div class="grid">
+    <div class="panel col">
+      <h3>Sequence the calls imply</h3>
+      <div class="tw" style="margin-top:8px"><table id="seq"></table></div>
+    </div>
+    <div class="panel col">
+      <h3>Effort split</h3>
+      <p style="font-size:13px;color:var(--ink2);margin:6px 0 10px">A 70 / 20 / 10 split of management time and discretionary spend across quick wins, strategic bets and adjacencies. It protects the Year 1 order book (G1) while keeping a small, capped budget for the bets that decide Years 4–7.</p>
+      <svg class="chart" id="split" viewBox="0 0 560 120" role="img" aria-label="Effort split"></svg>
+      <div class="tw" style="margin-top:10px"><table>
+        <tr><th>Bucket</th><th>Share</th><th>What it funds</th><th>Release rule</th></tr>
+        <tr><td><b>Quick wins</b></td><td class="n">70%</td><td>India South and West Tier 1 launch, SAFE and HUE kits, inserts and spares, BirlaNu dealer pull-through</td><td>Plan budget; gates G0–G2</td></tr>
+        <tr><td><b>Strategic bets</b></td><td class="n">20%</td><td>GCC label certification and a distributor pilot; WaterMark pre-assessment; SENSE development; Tier 2 cluster build</td><td>Staged: test result before the next tranche</td></tr>
+        <tr><td><b>Adjacencies</b></td><td class="n">10%</td><td>GeM and CPWD listings; one hospitality framework; OEM waterway samples to one global brand</td><td>Pilot only; scale on the adjacency KPIs</td></tr>
+      </table></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ADJACENCIES ================= -->
+<section class="view" id="v-adjacency" hidden>
+  <div class="sec-top"><div class="sec-h">
+    <span class="eyebrow">Adjacency opportunities</span>
+    <h2>OEM and private label, government tenders, hospitality bulk supply</h2>
+    <p>Scored on a coarser 0–3 scale with explicit risk penalties, because these are go / pilot / park choices with different economics from the core brand: lower margins, longer payment cycles, concentrated customers and, for OEM, a risk of feeding a competitor. Each option has an entry form, preconditions, a test and a kill criterion.</p>
+  </div></div>
+  <div class="slide" data-slide="adjacency"></div>
+  <div class="tw"><table id="adjrub"></table></div>
+  <div class="plist" id="adjlist"></div>
+</section>
+
+<!-- ================= TESTS ================= -->
+<section class="view" id="v-tests" hidden>
+  <div class="sec-top"><div class="sec-h">
+    <span class="eyebrow">Hypotheses to test</span>
+    <h2>The cheapest test that would change each call</h2>
+    <p>Every quick win and strategic bet, with the hypothesis behind it, the test, a budget and time box, and the result that would scale it or kill it. Low-confidence or low-robustness calls are listed first because they are the most likely to be wrong.</p>
+  </div></div>
+  <div class="slide" data-slide="tests"></div>
+  <div class="chips" id="tf"></div>
+  <div class="tw"><table id="testtab"></table></div>
+</section>
+
+<!-- ================= EVIDENCE ================= -->
+<section class="view" id="v-evidence" hidden>
+  <div class="sec-top"><div class="sec-h">
+    <span class="eyebrow">Evidence log</span>
+    <h2>What each score rests on</h2>
+    <p>Sourced figures were read from the linked pages in November 2026. Derived figures are arithmetic on sourced ones. Assumed figures and all cell scores are the analyst's and are the first thing to challenge.</p>
+  </div></div>
+  <div class="slide" data-slide="evidence"></div>
+  <div class="chips" id="ef"></div>
+  <div class="tw"><table id="etab"></table></div>
+</section>
+</main>
+<div id="tip" role="tooltip"></div>
+<script>
+/* ================= RUBRIC ================= */
+/* criteria: key, name, axis, default weight, scale anchors 1..5, why */
+const CRIT=[
+ {k:'sz',n:'Addressable size',ax:'A',w:30,brief:'added',
+  q:'How big is the pool where this category is bought in this geography (all materials, 2025)?',
+  a:['Under USD 30 mn','USD 30–90 mn','USD 90–270 mn','USD 270–800 mn','USD 800 mn or more'],
+  why:'Log bands, each about three times the last, so a USD 50 mn Nepal and a USD 2 bn US do not collapse into "small" and "big". Computed from geography market × category share (both shown per cell).'},
+ {k:'gr',n:'Market growth outlook',ax:'A',w:30,brief:'brief',
+  q:'Expected value growth over the next five years, adjusted for category momentum.',
+  a:['Under 3% a year, or shrinking','3–5% a year','5–7% a year','7–9% a year','9% a year or more'],
+  why:'Anchored on published CAGR bands so the score can be checked against a report. Category momentum (sensor taps, ageing, luxury) moves a cell by one band at most.'},
+ {k:'pr',n:'Price realisation potential',ax:'A',w:40,brief:'brief',
+  q:'Gross margin NuFlow can realise at a credible street price, after duty, freight and channel margins, against the ₹1,299 hero landed cost.',
+  a:['Under 35%','35–45%','45–52%','52–60%','60% or more'],
+  why:'The plan\'s gate G0 needs at least 50% gross margin per SKU for 18% EBITDA. Bands sit either side of that line, so a 3 is "only just clears", not "average".'},
+ {k:'rg',n:'Regulatory ease (entry barrier)',ax:'E',w:25,brief:'brief',
+  q:'What certification must a polymer-bodied product clear, how long does it take, and is a polymer body accepted?',
+  a:['Several regimes plus a material or design change; over 18 months','Material and product approvals across bodies; 12–18 months','Third-party product certification; 6–12 months','Flow label or voluntary standard; under 6 months','Certifications already in the India plan; nothing new'],
+  why:'Scored as ease (5 = easiest) so every criterion reads higher-is-better. Time to certify is the anchor because it decides whether revenue lands in the plan\'s window. A 2 or below is a gate.'},
+ {k:'cp',n:'Competitive intensity (inverse)',ax:'E',w:25,brief:'brief',
+  q:'How crowded is the shelf for a new entrant with a polymer-hybrid product?',
+  a:['Entrenched leaders, price war or brand-standard lock-in','Two or three dominant brands; little white space','Several organised brands, but a gap in finish, price or format','Fragmented; no organised polymer-hybrid player','Unclaimed category or a captive aftermarket'],
+  why:'Reversed so 5 is least competitive. The anchor is white space for this product, not the number of brands: a crowded market with an empty mid-premium polymer slot scores 3.'},
+ {k:'ch',n:'Channel accessibility',ax:'E',w:30,brief:'brief',
+  q:'Can NuFlow reach the buyer without building a channel from scratch?',
+  a:['No route without major investment (big-box line review, local entity)','A gatekeeper listing or brand standard is needed first','A distributor or importer must be recruited','A known partner route (platform, specifier, trading network)','BirlaNu-owned channel or warm accounts already in place'],
+  why:'Weighted highest on the ease axis because the plan\'s Year 1 rests on BirlaNu accounts and dealers. A 2 or below is a gate.'},
+ {k:'rw',n:'Right to win (product readiness)',ax:'E',w:20,brief:'added',
+  q:'Is there a NuFlow product ready for this cell, and what must change?',
+  a:['New development (new mechanism, electronics or material)','Major adaptation (format, cartridge, endurance proof)','Moderate adaptation (threads, flows, labels, test data)','Minor adaptation (packaging, language, one test)','Launch SKU in the plan with tests mapped'],
+  why:'Added because an attractive, open market is still a poor bet if the product is two years away. Keeps the matrix honest about the gap between strategy and the SKU list.'}
+];
+const CRIT_K=CRIT.map(c=>c.k);
+
+/* ================= GEOGRAPHIES ================= */
+/* mkt: faucet market USD mn 2025; mt: [tag] ; s: base scores (gr,pr,rg,cp,ch,rw); sh: share profile; conf */
+const GEOS=[
+ {id:'IS1',n:'India · South Tier 1',sub:'Hyderabad, Bengaluru, Chennai',mkt:301,mt:'der',mnote:'₹20,190 Cr × Tier 1 38% × South 35% of top-7 launches ≈ ₹2,650 Cr',sh:'IN',conf:'H',
+  s:{gr:5,pr:4,rg:5,cp:3,ch:5,rw:5},
+  t:{gr:'Faucets ~10% a year nationally; South is the largest and fastest region (34% of faucet revenue); Hyderabad launches up again in 2026.',
+     pr:'HUE at ₹4,999 MRP nets about ₹3,000 after GST and a 29% channel margin, against ₹1,299 landed: about 57% gross margin.',
+     rg:'IS 9763, IS 8931 and IS 17650-2 are already in the launch plan.',
+     cp:'Jaquar leads, but Cera is weak in Telangana and AP; the mid tier is crowded, yet a finish-led polymer-hybrid is white space.',
+     ch:'BirlaNu HQ, R&D centre, Hyderabad and Thimmapur plants, depots; warm developers and institutions (Yashoda, Aurobindo, Telangana Secretariat).',
+     rw:'Launch SKUs, kits and tests are designed for this market.'},
+  test:['Two sample flats and 20 studios in Hyderabad; reorder within 90 days and spec approvals','₹15–20 lakh','6 months'],revisit:'n/a'},
+ {id:'IW1',n:'India · West and North Tier 1',sub:'Pune, NCR, Mumbai MMR',mkt:534,mt:'der',mnote:'₹20,190 Cr × Tier 1 38% × West and North 61% of top-7 launches ≈ ₹4,700 Cr',sh:'IN',conf:'H',
+  s:{gr:4,pr:4,rg:5,cp:2,ch:4,rw:5},
+  t:{gr:'Largest launch volumes (MMR 1.26 lakh, Pune 68k, NCR 62k) but top-7 sales fell 14% in 2025; NCR is premium-heavy.',
+     pr:'Same net margin as the South; NCR\'s luxury mix supports higher price points.',
+     rg:'Same India certifications.',
+     cp:'Jaquar\'s strongest region; GROHE and Kohler showrooms; architects specify established brands in premium projects.',
+     ch:'Wada, Faridabad and Jhajjar plants; DLF, M3M, Raheja, Mahindra Lifespaces as warm accounts; studios still to build.',
+     rw:'Same launch SKUs.'},
+  test:['Spec packs to five Pune and NCR developers through BirlaNu account owners; count "or equivalent" approvals','₹5 lakh','4 months'],revisit:'n/a'},
+ {id:'IT2',n:'India · Tier 2 cities',sub:'Coimbatore, Vizag, Lucknow, Ahmedabad, Jaipur and peers',mkt:574,mt:'der',mnote:'₹20,190 Cr × Tier 2 25% (Cera tier mix) ≈ ₹5,050 Cr',sh:'IN',conf:'M',
+  s:{gr:5,pr:3,rg:5,cp:3,ch:4,rw:5},
+  t:{gr:'Tier 2 home interiors growing 19% a year vs 12% in Tier 1; homes above ₹1 Cr rose to 28% of Tier 2 sales.',
+     pr:'Same MRP, but heavier discounting and a lower mix; realisation sits just above the 50% line.',
+     rg:'Same India certifications.',
+     cp:'Organised brands sell through dealers; local multi-brand counters; fewer specifiers to win.',
+     ch:'BirlaNu\'s pipe and roofing dealers already sell here; NuFlow clusters planned from FY31.',
+     rw:'Same SKUs; CORE and SAFE lead.'},
+  test:['Seed two 40-outlet dealer clusters (Coimbatore, Vijayawada); reorder rate and street price','₹10 lakh','6 months'],revisit:'n/a'},
+ {id:'IT3',n:'India · Tier 3 and rural',sub:'Self-build towns, PMAY-G, JJM villages',mkt:849,mt:'der',mnote:'₹20,190 Cr × Tier 3 and below 37% ≈ ₹7,470 Cr',sh:'IN3',conf:'M',
+  s:{gr:4,pr:2,rg:5,cp:1,ch:3,rw:4},
+  t:{gr:'PMAY-G Phase II (2 crore houses to 2029) and Jal Jeevan Mission to 2028; volume grows faster than value.',
+     pr:'PTMT taps sell at ₹130–500 and CPWD pays ₹126–224; CORE at ₹1,299 MRP is far above the band.',
+     rg:'Same India certifications; IS 9763 covers PTMT.',
+     cp:'PTMT price war: Prayag, Truflo, Prince, Skipper, Cera Polipluz and unorganised makers; JJM bib cocks clear near ₹52.',
+     ch:'BirlaNu roofing and Topline pipe dealers reach these towns; hardware counters and plumbers decide.',
+     rw:'CORE exists, but its cost and price architecture are mid-premium.'},
+  test:['Price test: a CORE value pack at ₹699 through 50 Topline dealers; sell-through vs PTMT','₹3 lakh','3 months'],revisit:'A CORE variant lands below ₹400, or a value sub-brand is approved'},
+ {id:'GCC',n:'GCC',sub:'UAE, Saudi Arabia, Oman, Qatar',mkt:900,mt:'ass',mnote:'Saudi USD 307 mn (IMARC) ≈ a third of the GCC; total assumed',sh:'GCC',conf:'M',
+  s:{gr:4,pr:4,rg:4,cp:3,ch:3,rw:4},
+  t:{gr:'Saudi 6.5% and UAE 8.7% a year; Sakani housing and a deep hotel pipeline.',
+     pr:'Mid tier at AED 150–400 (₹3,600–9,600) against about ₹1,500 landed; zero duty under the UAE and Oman CEPAs, 5% elsewhere.',
+     rg:'GSO water-efficiency label, SABER and SASO 2655, Qatar Green Label from Feb 2026: flow tests, not material tests.',
+     cp:'Fragmented: Chinese zinc and ABS at the bottom, Ideal Standard and GROHE above; Jaquar and Hindware already present.',
+     ch:'No BirlaNu presence; Indian trading networks in UAE and Oman; a distributor is needed.',
+     rw:'Same product; label testing, heat and chlorinated-water data and Arabic packs.'},
+  test:['GSO/SASO labels on six SKUs; letters of intent from one UAE and one Saudi distributor','₹12–15 lakh','6–9 months'],revisit:'n/a'},
+ {id:'AFR',n:'Africa',sub:'South Africa, Kenya and East Africa, Nigeria',mkt:500,mt:'ass',mnote:'South Africa USD 148 mn (IMARC); Kenya, East Africa and Nigeria assumed',sh:'AFR',conf:'L',
+  s:{gr:4,pr:2,rg:3,cp:3,ch:2,rw:4},
+  t:{gr:'South Africa 6.2% a year; Kenya has 140,000–160,000 affordable homes under construction.',
+     pr:'20% duty in South Africa (EU and SADC pay none) and 25% in Kenya; Chinese ABS shattafs retail at KES 1,500.',
+     rg:'SANS 1021 and 1808-37 explicitly cover plastic taps; SONCAP per shipment in Nigeria; PVoC in Kenya.',
+     cp:'Cobra (LIXIL) leads South African brass; Chinese ABS and PP imports dominate the economy tier.',
+     ch:'An importer is needed in each country; Kenya\'s housing programme favours local content.',
+     rw:'Fits BSP threads; UV and low-pressure data needed.'},
+  test:['SANS pre-assessment on three SKUs; landed-cost check at 20% duty with one South African importer','₹6 lakh','4 months'],revisit:'An India–SACU or India–EAC preference, or a local assembly partner'},
+ {id:'SAS',n:'South Asia',sub:'Bangladesh, Nepal, Sri Lanka',mkt:200,mt:'ass',mnote:'Bangladesh taps above Tk 1,500 Cr (≈USD 125 mn); Nepal and Sri Lanka assumed',sh:'AFR',conf:'L',
+  s:{gr:5,pr:2,rg:4,cp:3,ch:3,rw:5},
+  t:{gr:'Bangladesh taps growing about 15% a year.',
+     pr:'Local taps at Tk 20–500 and imports at Tk 500–5,000 (₹350–3,600); little room above landed cost and freight.',
+     rg:'Bangladesh does not list taps as compulsory; Nepal\'s draft standard covers copper alloy only (a gap, not a ban).',
+     cp:'Local plastic makers (PRAN-RFL started in plastic) and Indian and Chinese imports.',
+     ch:'Land routes from the Topline East network; a distributor is needed.',
+     rw:'Same product and water conditions as eastern India.'},
+  test:['One container through a Dhaka distributor; sell-through over 90 days','₹5 lakh','4 months'],revisit:'Topline East dealers ask for bath fittings, or Bangladesh import prices rise'},
+ {id:'SEA',n:'South-East Asia',sub:'Indonesia, Philippines, Vietnam, Malaysia',mkt:1600,mt:'ass',mnote:'Philippines USD 270 mn (IMARC); regional total assumed',sh:'SEA',conf:'L',
+  s:{gr:3,pr:3,rg:3,cp:2,ch:2,rw:3},
+  t:{gr:'Philippines 6.2% a year; Indonesia\'s housing programme is pivoting to renovation in 2026.',
+     pr:'Mid tier at USD 50–150, but China enters near duty-free under ACFTA while India\'s AITIGA treatment is unclear (MFN 5–30%).',
+     rg:'Indonesia SNI 122:2022 needs a factory audit (3–6 months); Malaysia SIRIM.',
+     cp:'TOTO, American Standard, Inax, and Chinese makers with a tariff advantage.',
+     ch:'No presence; distributors and modern trade to recruit.',
+     rw:'Bidet sprays and USD 50–150 price architecture; SNI dossier.'},
+  test:['Desk test of AITIGA duty on 8481.80 and SNI cost; one Philippine distributor conversation','₹1 lakh','1 month'],revisit:'AITIGA gives India parity with China on 8481.80'},
+ {id:'EUR',n:'UK and Europe',sub:'UK first (CETA), then EU after the FTA',mkt:9000,mt:'ass',mnote:'Europe total assumed from KBV (Germany alone USD 3.8 bn by 2031)',sh:'DEV',conf:'M',
+  s:{gr:3,pr:4,rg:2,cp:2,ch:2,rw:2},
+  t:{gr:'Mature and replacement-led; reports cite ~7% a year, but housing completions are weak, so scored 3.',
+     pr:'£40–120 economy-mid mixers; UK duty 0% under CETA from Jul 2026; EU 2.2% until the FTA in 2027.',
+     rg:'WRAS (BS 6920 and product approval), EN 817 hot-water cycling, KTW-BWGL, and the EU positive list binding from 31 Dec 2026.',
+     cp:'Dense: GROHE, Hansgrohe, Bristan, and retailer private labels made in China.',
+     ch:'Merchants and retailers need listings; build-to-rent and student-housing specifiers are a way in.',
+     rw:'Polymer passes material tests, but hot-water endurance and a WRAS plastic-body precedent are unproven.'},
+  test:['BS 6920 material test on the PPSU and PA66 grades and EN 817 cycling at an accredited lab','₹8–10 lakh','6 months'],revisit:'The EU FTA is in force (2027) and the BS 6920 material test passes (shared with the OEM route)'},
+ {id:'USA',n:'USA and Canada',sub:'Multifamily, manufactured housing, economy hotels',mkt:7000,mt:'der',mnote:'US USD 6.0 bn (2024, Fortune) grown to 2025, plus Canada',sh:'DEV',conf:'M',
+  s:{gr:3,pr:4,rg:2,cp:1,ch:1,rw:2},
+  t:{gr:'US faucets 5.9% a year to 2032.',
+     pr:'USD 50–150 budget-mid; Indian taps pay about 13–14% against about 41% for Chinese since 24 Jul 2026, a 27-point edge.',
+     rg:'NSF 61/372, ASME A112.18.1, cUPC and WaterSense; the BOM\'s PPSU waterway is an NSF-listed grade and inserts are lead-free.',
+     cp:'Masco, Fortune Brands and Kohler plus retailer private label; big-box line reviews.',
+     ch:'No route without a line review or an OEM partner; Home Depot caps any one foreign country at 10% of purchases.',
+     rw:'Needs centerset formats, 1.2–1.5 gpm aerators and US cartridges.'},
+  test:['NSF 61/372 pre-test of the waterway; samples to one US brand\'s sourcing team (see OEM adjacency)','₹10–15 lakh','6 months'],revisit:'An OEM supply relationship exists, or a US multifamily distributor approaches'},
+ {id:'ANZ',n:'Australia and New Zealand',sub:'Multi-residential, aged care, hard-water regions',mkt:760,mt:'src',mnote:'Australia USD 661 mn (IMARC) plus New Zealand',sh:'DEV',conf:'M',
+  s:{gr:3,pr:4,rg:3,cp:2,ch:2,rw:3},
+  t:{gr:'Australia 6.3% a year to 2034.',
+     pr:'AUD 150–350 mid tier; zero duty under ECTA from Jan 2026.',
+     rg:'WaterMark (AS 3718) lists plastic taps; the May 2026 lead-free rule favours non-copper bodies; WELS rating.',
+     cp:'Caroma, Methven and Phoenix; Reece controls the plumbing merchant channel.',
+     ch:'Reece and Bunnings line reviews; multi-residential builders as specifiers.',
+     rw:'The BOM uses a lead-free insert; WaterMark dossier and 500 kPa / 80°C endurance still needed.'},
+  test:['WaterMark pre-assessment for HUE H1; one conversation each with Reece and a multi-residential builder','₹6 lakh','5 months'],revisit:'n/a'}
+];
+
+/* share profiles: % of geography faucet value by category */
+const SHARE={
+ IN:{BM:28,UT:22,HF:10,SH:16,SN:3,SF:3,SP:14,DL:4},
+ IN3:{BM:18,UT:35,HF:14,SH:14,SN:1,SF:2,SP:14,DL:2},
+ GCC:{BM:28,UT:12,HF:14,SH:20,SN:6,SF:2,SP:10,DL:8},
+ AFR:{BM:25,UT:25,HF:10,SH:15,SN:2,SF:2,SP:16,DL:5},
+ SEA:{BM:26,UT:18,HF:12,SH:20,SN:4,SF:2,SP:12,DL:6},
+ DEV:{BM:32,UT:6,HF:2,SH:26,SN:5,SF:4,SP:15,DL:10}
+};
+
+/* ================= CATEGORIES ================= */
+const CATS=[
+ {id:'BM',n:'Basin and tall mixers',line:'HUE, SAFE mixers',conf:'H',a:{gr:0,pr:0,rg:0,cp:-1,ch:0,rw:0},
+  t:{gr:'Bathroom sink faucets are 77% of India\'s faucet revenue; steady with construction.',pr:'Hero material bill known: ₹1,299 landed against ₹1,565 for brass.',rg:'Standard faucet certification.',cp:'Every brand\'s hero category and the most contested shelf.',ch:'Sold everywhere fittings are sold.',rw:'HUE H1 material bill and tests are defined.'},
+  ctest:'Blind finish test against Jaquar Continental Prime with 30 buyers and five plumbers'},
+ {id:'UT',n:'Utility taps and valves',line:'CORE (bib, pillar, angle)',conf:'H',a:{gr:-1,pr:-1,rg:0,cp:-1,ch:1,rw:0},
+  t:{gr:'Mature and commoditised; volume follows construction.',pr:'PTMT at ₹126–224 and CP brass at ₹507–821 (CPWD); NuFlow must sell on warranty, not price.',rg:'IS 9763 written for plastic bodies.',cp:'PTMT incumbents and unorganised makers; pipe companies (Prince, Astral) entering.',ch:'At every hardware counter and through pipe dealers.',rw:'CORE in the plan.'},
+  ctest:'Warranty-led pitch against PTMT incumbents at 20 counters; win rate and price held'},
+ {id:'HF',n:'Health faucets, shattafs, hand showers',line:'SAFE hand shower, CORE health faucet',conf:'M',a:{gr:0,pr:0,rg:0,cp:-1,ch:1,rw:1},
+  t:{gr:'On virtually every WC in India and the GCC; a hygiene habit, not a trend.',pr:'ABS is already accepted, so polymer carries no discount; a better spray and hose earns ₹1,500–2,500.',rg:'Standard; backflow rules apply in the US.',cp:'Commoditised; Chinese ABS floods GCC and African retail.',ch:'A counter and online staple.',rw:'Already plastic in most markets: no credibility gap for polymer.'},
+  ctest:'Spray and hose durability against ABS imports; price held at ₹1,499'},
+ {id:'SH',n:'Showers and diverters',line:'SAFE thermostatic, HUE shower',conf:'M',a:{gr:0,pr:0,rg:-1,cp:0,ch:0,rw:-2},
+  t:{gr:'Rain showers and thermostats rising in premium homes.',pr:'Wall mixers at ₹6,940 (CPWD brass rate); ABS overhead heads already common.',rg:'Thermostatic and anti-scald valves need extra approvals abroad (TMV2, ASSE 1016).',cp:'Global brands above, ABS commodity heads below.',ch:'Same channels as mixers.',rw:'Overhead and hand showers are simple to source, but diverter and thermostatic cartridges are not yet engineered.'},
+  ctest:'Quotes for a diverter and a thermostatic cartridge from two OEMs; bench test'},
+ {id:'SN',n:'Sensor taps',line:'SENSE',conf:'L',a:{gr:1,pr:1,rg:-1,cp:1,ch:-1,rw:-3},
+  t:{gr:'Automatic faucets growing about 8% a year from a small base; hygiene habit after COVID.',pr:'CPWD pays ₹8,804 for a brass infrared pillar cock; SENSE MRP is ₹12,999.',rg:'Electronics add EMC, battery and adapter approvals.',cp:'Fewer specialists: Jaquar, Kohler, Euronics.',ch:'Commercial projects and facility managers, not home counters.',rw:'New development: SENSE launches in FY29; electronics sourcing, battery life and service still to build.'},
+  ctest:'Pilot 20 sensor taps in one BirlaNu institutional client (Yashoda, SRM); failure and battery data'},
+ {id:'SF',n:'Safety and accessible fittings',line:'SAFE, NIGHTGLOW',conf:'M',a:{gr:1,pr:1,rg:0,cp:1,ch:-1,rw:0},
+  t:{gr:'India\'s 60+ population rises from 162 mn to 192 mn by 2030; the GCC, Europe and Australia are ageing too.',pr:'A safety claim earns a premium the buyer (often an adult child) accepts.',rg:'Standard, except thermostatic anti-scald abroad.',cp:'Unclaimed as a faucet category in India; care-market specialists abroad.',ch:'Needs education: plumbers, senior-living operators, hospitals, online.',rw:'SAFE is in the OEM RFQ now.'},
+  ctest:'Senior-living and hospital pilot; adult-child online offer with a fitter visit'},
+ {id:'SP',n:'Spares, inserts, accessories',line:'HUE inserts, cartridges, aerators',conf:'M',a:{gr:0,pr:1,rg:1,cp:1,ch:1,rw:0},
+  t:{gr:'Global faucet parts and repair growing about 5.8% a year.',pr:'Colour inserts at ₹699 carry the highest margin in the range.',rg:'Most parts are not separately certified.',cp:'Captive to NuFlow\'s own installed base at home.',ch:'D2C and marketplaces; the QR passport routes spares.',rw:'Inserts and cartridges are part of the module platform.'},
+  ctest:'Insert attach rate on the installed base through QR registrations'},
+ {id:'DL',n:'Designer and luxury capsule',line:'ATELIER',conf:'L',a:{gr:-1,pr:0,rg:0,cp:-2,ch:-1,rw:-1},
+  t:{gr:'India luxury bath fixtures 4.6% a year (IMARC).',pr:'High prices, but realisation depends on polymer being credible at luxury.',rg:'Standard faucet certification.',cp:'Artize, GROHE, Gessi and Axor anchor an identity-led market.',ch:'Architects and experience centres only.',rw:'Atelier from FY30; polymer at luxury unproven.'},
+  ctest:'One architect collaboration capsule; measure specifications written, not sales'}
+];
+
+/* ================= OVERRIDES ================= */
+/* key "GEO|CAT": {crit:delta, note} */
+const OVR={
+ 'GCC|HF':{cp:1,gr:1,ch:-1,note:'Shattafs sit in nearly every Gulf WC and ABS is accepted, so the category is bigger and more open to polymer than elsewhere; the brand space above Chinese ABS is thin but real.'},
+ 'AFR|HF':{note:'Kenyan retail shows ABS shattafs from KES 1,500 (China) to KES 6,100 (Ideal Standard): plastic is normal at every tier.'},
+ 'SEA|HF':{gr:1,note:'Bidet sprays are standard in Malaysia, Indonesia, the Philippines and Thailand.'},
+ 'USA|HF':{rg:-1,gr:-1,note:'Bidet sprayers are niche in the US and need backflow-prevention listing.'},
+ 'EUR|HF':{gr:-1,note:'Hand-held bidet sprays are niche outside Muslim households.'},
+ 'IS1|SF':{cp:1,note:'Sample flats put SAFE in the parents\' bathroom; Yashoda Hospital and senior-living projects are reachable; no incumbent claims the category.'},
+ 'IW1|SF':{note:'Pune and NCR have the most organised senior-living supply in India.'},
+ 'ANZ|SF':{gr:1,ch:1,note:'Aged care is a funded, specification-led segment in Australia; WaterMark plastic-tap acceptance helps.'},
+ 'EUR|SF':{note:'Healthcare and care homes need TMV3 thermostatic valves in the UK.'},
+ 'USA|SN':{cp:-1,note:'Sloan and Chicago Faucets dominate commercial sensor taps in the US.'},
+ 'GCC|SN':{gr:1,ch:1,note:'Malls, mosques and airports specify touchless fittings through contractors; hygiene is a selling point.'},
+ 'IW1|DL':{ch:1,cp:1,note:'Over 55% of NCR launches are above ₹2.5 Cr; architects and luxury showrooms are concentrated here.'},
+ 'ANZ|BM':{cp:1,note:'About a third of the Australian market is already non-metal (IMARC), so polymer faces less resistance than in Europe.'},
+ 'ANZ|SH':{cp:1,note:'Same non-metal acceptance as basin mixers.'},
+ 'USA|BM':{note:'Finished-goods entry needs a big-box line review; the realistic route is the OEM waterway adjacency.'},
+ 'GCC|BM':{note:'UAE and Oman CEPAs give zero duty; Saudi charges the 5% GCC rate.'},
+ 'IT3|UT':{note:'The JJM and CPWD price points (₹52–224) set the ceiling here.'},
+ 'IS1|SP':{note:'Inserts follow every HUE installed; QR passport registrations drive repeat.'},
+ 'IT2|SP':{note:'Installed base arrives with dealer clusters from FY31.'},
+ 'IT3|SP':{pr:-1,cp:-1,note:'No NuFlow installed base until clusters reach Tier 3; generic spares compete with PTMT spares at hardware counters.'},
+ 'ANZ|HF':{gr:-1,note:'Hand-held bidet sprays are niche in Australia and New Zealand.'},
+ 'SEA|SF':{gr:-1,note:'Younger populations outside Thailand and Vietnam; the care market is small.'}
+};
+/* exports: spares are generic aftermarket without an installed base */
+['GCC','AFR','SAS','SEA','EUR','USA','ANZ'].forEach(g=>{const k=g+'|SP';OVR[k]=Object.assign({szAbs:1,pr:-1,cp:-2,ch:-1,rw:-1,note:'Abroad there is no NuFlow installed base, so the pool is not addressable: spares would compete as generic aftermarket parts. Size is set to 1.'},OVR[k]||{})});
+
+/* ================= ADJACENCIES ================= */
+const ADJ_CRIT=[
+ {k:'pz',n:'Prize',a:['Under ₹5 Cr a year at maturity','₹5–20 Cr','₹20–60 Cr','Over ₹60 Cr']},
+ {k:'mg',n:'Margin quality',a:['Under 15% gross margin','15–30%','30–45%','Over 45%']},
+ {k:'ft',n:'Strategic fit',a:['Harms the NuFlow brand or plan','Neutral','Helps one goal (utilisation, references or learning)','Helps several goals']},
+ {k:'rd',n:'Readiness',a:['New plant, certification or entity; over 18 months','12–18 months','6–12 months with existing assets','Under 6 months with existing assets']}
+];
+const ADJ_RISK=[
+ {k:'bd',n:'Brand dilution'},{k:'wc',n:'Payment and working capital'},{k:'cc',n:'Customer concentration'},{k:'pv',n:'Policy volatility'}
+];
+const ADJ=[
+ {grp:'OEM and private label',id:'O1',n:'Polymer waterway sub-assemblies for global brands',s:{pz:3,mg:1,ft:3,rd:1},r:{bd:0,wc:0,cc:-1,pv:-1},
+  what:'Moulded PPSU or PEX waterways with cartridge seats, certified to NSF 61/372, supplied to a US brand or its contract manufacturer for metal-shell faucets.',
+  why:'The US is the one large market where India has a tariff edge (about 13–14% against 41% for China since Jul 2026). Delta (PEX waterway) and Kohler (patented composite body) already put polymer inside the faucet, so the technology is accepted. It uses BirlaNu\'s moulding strengths, avoids plating risk, and the component is invisible, so the NuFlow brand is untouched.',
+  pre:['NSF 61/372 listing of the waterway grade (USD 5–15k per family, 8–12 weeks)','Moulding capacity in a BirlaNu plant, or a tooling partner','A quality system that passes a brand audit'],
+  test:'Send certified waterway samples to two US brands\' sourcing teams; ₹10–15 lakh, 6 months',scale:'A paid development order or annual volume above 0.5 mn units',kill:'No paid order in 12 months, or the US tariff gap falls below 10 points',
+  risks:'US tariffs changed four times in 2026; brands hold the designs, so NuFlow is a price-taker; Section 232 metals tariffs may hit brass shells (unverified).'},
+ {grp:'OEM and private label',id:'O2',n:'Finished private-label faucets for retailers',s:{pz:2,mg:1,ft:1,rd:0},r:{bd:-1,wc:0,cc:-1,pv:-1},
+  what:'Complete faucets under Home Depot, Lowe\'s, B&Q, Leroy Merlin or Bunnings own brands.',
+  why:'Retailers are diversifying away from China, but private label means plating and finish quality at scale, multiple certifications per market, line reviews, and products that sit next to NuFlow\'s own at a lower price. Chinese OEMs earn 30–34% gross margin with mature tooling; a new entrant would earn less.',
+  pre:['Plating and finishing quality at volume','NSF, WRAS or WaterMark per market','A line-review win'],
+  test:'Desk test only: one sourcing-agent conversation on target FOB prices; ₹1 lakh, 1 month',scale:'Target FOB covers landed cost with 25% margin',kill:'Target FOB below landed cost plus 15%',
+  risks:'Feeds a competitor shelf; price-taker; concentration on one retailer.'},
+ {grp:'OEM and private label',id:'O3',n:'Private label for Indian platforms and developers',s:{pz:1,mg:1,ft:2,rd:2},r:{bd:-1,wc:0,cc:-1,pv:0},
+  what:'Developer-branded or platform-branded fittings (Infra.Market IVAS, Brick&Bolt, large developers) made from NuFlow modules.',
+  why:'Adds volume through the same OEMs, but blurs the NuFlow brand in exactly the channel where the plan is building it, and platforms buy on price.',
+  pre:['OEM capacity beyond NuFlow\'s own needs','A separate SKU set so NuFlow modules are not commoditised'],
+  test:'One platform conversation on volume and price; ₹0.5 lakh, 1 month',scale:'A volume commitment at 30%+ gross margin without NuFlow-identical SKUs',kill:'Price below the NuFlow kit price book',
+  risks:'Brand blur; platform concentration.'},
+ {grp:'Government and institutional tenders',id:'G1',n:'Institutional projects through EPC contractors and housing boards',s:{pz:2,mg:2,ft:3,rd:2},r:{bd:0,wc:-1,cc:0,pv:0},
+  what:'SAFE and CORE on IS 9763 / IS 8931 specs for hostels, hospitals, campuses, Amrit Bharat stations and PMAY-U partnership housing, sold through BirlaNu\'s EPC accounts (L&T, Tata Projects, Shirke, Ahluwalia) and housing boards.',
+  why:'Specs accept PTMT and ISI-marked fittings; BirlaNu already sells to the contractors who buy; positioned at CP-brass rates (CPWD ₹507–821) a polymer-hybrid clears 30–45% gross margin. Institutional references strengthen the developer pitch.',
+  pre:['IS marks on CORE and SAFE','Approved-make listing with two EPC contractors','A project price book separate from GeM L1 pricing'],
+  test:'Approved-make submissions to two EPC contractors and one state housing board; ₹3 lakh, 4 months',scale:'Two approvals and one order inside six months',kill:'No approval in nine months, or orders only at PTMT prices',
+  risks:'Government and PSU payment delays (₹31,039 Cr pending on MSME Samadhaan, about 40% from public buyers).'},
+ {grp:'Government and institutional tenders',id:'G2',n:'GeM and CPWD catalogue listing',s:{pz:1,mg:1,ft:2,rd:3},r:{bd:-1,wc:-1,cc:0,pv:0},
+  what:'List CORE and SAFE on the IS 9763 and IS 1795 GeM catalogues and match CPWD DSR items.',
+  why:'Fast and cheap to list, and GeM moved ₹5 lakh Cr in FY26, but tap bids are small mixed lots decided on L1 price with MSE preference; a PTMT bib tap is listed at ₹131.',
+  pre:['IS marks','GeM seller registration'],
+  test:'List four SKUs and bid on ten institutional lots; ₹1 lakh, 3 months',scale:'Win rate above 20% at prices above ₹400 a unit',kill:'Wins only at PTMT prices',
+  risks:'L1 pricing sets a public price floor for the NuFlow brand.'},
+ {grp:'Government and institutional tenders',id:'G3',n:'Jal Jeevan Mission tap bundling via Topline',s:{pz:2,mg:0,ft:1,rd:2},r:{bd:-2,wc:-1,cc:0,pv:-1},
+  what:'Add a PTMT bib cock to Topline\'s FHTC fittings kit under its JJM approvals in 12 states.',
+  why:'15.79 crore connections done and the mission runs to Dec 2028, but JJM bib cocks clear near ₹52. Worth it for Topline as a kit add-on; harmful under the NuFlow name.',
+  pre:['A Topline or unbranded PTMT tap from a value OEM'],
+  test:'Route to Topline: one state tender with the tap added to the kit',scale:'For Topline only',kill:'Any proposal to brand it NuFlow',
+  risks:'Brand damage if NuFlow-branded; state payment cycles; mission ends in 2028.'},
+ {grp:'Government and institutional tenders',id:'G4',n:'Housing tenders abroad (Kenya, Saudi, donor-funded)',s:{pz:2,mg:1,ft:1,rd:0},r:{bd:0,wc:-1,cc:-1,pv:-1},
+  what:'Kenya Affordable Housing, Saudi Sakani and NHC projects, World Bank and AfDB water and housing tenders.',
+  why:'Large programmes, but Kenya reports 97% local materials on flagship estates and Saudi gives local bids a 10% price preference; no presence or entity yet.',
+  pre:['A local partner or assembly','Market certification (SANS, SASO)'],
+  test:'Revisit once a GCC or African distributor is in place',scale:'—',kill:'—',
+  risks:'Local-content rules; concentration; policy change.'},
+ {grp:'Hospitality bulk supply',id:'H1',n:'Midscale owners and conversions in India',s:{pz:2,mg:2,ft:3,rd:3},r:{bd:0,wc:-1,cc:0,pv:0},
+  what:'Hotel room kits to owner groups and franchisees: PRISM (OYO) partner hotels, Lemon Tree and Keys owners, Radisson Individuals, conversions and refurbishments.',
+  why:'Fittings are bought by owners where brand standards are light; no published supplier for these brands; the hotel room kit exists at ₹11,178 realised (35% off); India\'s pipeline is 906 projects and 118,000 rooms. Rooms become references for developers.',
+  pre:['Hotel room kit with a longer warranty and parts hotline','Third-party cycle and warranty data'],
+  test:'Two pilot hotels (one PRISM, one franchise owner); ₹4 lakh, 6 months',scale:'Six hotels under PO by Mar 2027 (plan gate G1)',kill:'Owners refuse polymer after the pilot data',
+  risks:'Owner credit and payment terms.'},
+ {grp:'Hospitality bulk supply',id:'H2',n:'Chain procurement frameworks and brand standards',s:{pz:3,mg:1,ft:2,rd:0},r:{bd:0,wc:0,cc:-1,pv:0},
+  what:'Approved-vendor listing with Marriott, Hilton, IHG or Accor through their purchasing arms or brand standards.',
+  why:'The prize is large, but purchasing arms (Avendra, Hilton Supply Management) file plumbing under maintenance and no chain-wide fittings rate contract was found; brands specify through standards and consultants, and polymer has no precedent there.',
+  pre:['Durability data and a reference property','One economy-brand standard submission (back-of-house first)'],
+  test:'One back-of-house standard submission to an economy brand; ₹2 lakh, 9 months',scale:'Listing for any guest-room point',kill:'Rejection on material grounds',
+  risks:'Concentration; long qualification.'},
+ {grp:'Hospitality bulk supply',id:'H3',n:'GCC hotel and labour-accommodation supply',s:{pz:2,mg:2,ft:2,rd:1},r:{bd:0,wc:-1,cc:0,pv:0},
+  what:'Shattafs, hand showers and basin mixers to economy hotels, serviced apartments and labour accommodation through GCC FF&E contractors.',
+  why:'Shattafs are universal and ABS is accepted; corrosion and heat resistance are real benefits; tied to the GCC strategic bet\'s labels and distributor.',
+  pre:['GSO / SASO labels','A GCC distributor'],
+  test:'Run with the GCC strategic-bet test: one FF&E contractor quote request',scale:'One project order',kill:'GCC bet killed',
+  risks:'Payment terms through contractors.'},
+ {grp:'Hospitality bulk supply',id:'H4',n:'Refurbishment and spares contracts for installed hotels',s:{pz:1,mg:3,ft:2,rd:1},r:{bd:0,wc:0,cc:0,pv:0},
+  what:'Annual spares and module-swap contracts for hotels already fitted with NuFlow.',
+  why:'Highest margin (inserts and cartridges), but needs an installed base first; becomes worth pursuing once 20+ hotels are fitted.',
+  pre:['Installed base of 20+ hotels','Parts hotline and fitter network'],
+  test:'Offer to the first six hotels at handover',scale:'Attach rate above 50%',kill:'Attach rate below 20%',
+  risks:'Small until the base grows.'}
+];
+
+/* ================= SLIDES ================= */
+const SLIDES={
+ answer:{h:'Win at home with what is ready ({QWN} quick wins, all in India); place capped bets where polymer is already allowed ({SBN} strategic bets).',b:['Quick wins: {QWT}','Strategic bets: {SBT}','Deprioritise now: India Tier 3 utility and health faucets at PTMT prices, most of South-East Asia, US finished goods, luxury outside NCR','Adjacencies to pursue now: institutional projects through EPC contractors; midscale hotel owners in India. Pilot: polymer waterway OEM for US brands. Park: retailer private label, JJM under the NuFlow name','Every call is a hypothesis with a test, a budget and a kill criterion; robustness is shown under 300 random weight sets']},
+ rubric:{h:'Seven anchored criteria on two axes, two gates, four calls: a rubric built for a polymer-hybrid entrant.',b:['Attractiveness: addressable size (30%, log bands), growth (30%, CAGR bands), price realisation (40%, gross-margin bands around the 50% G0 line)','Ease: regulatory ease (25%, months to certify), competitive intensity (25%, white space), channel access (30%, BirlaNu route), right to win (20%, product readiness)','Gates: regulatory ease ≤ 2 or channel access ≤ 2 rules out a quick win however good the average','Calls: quick win (ease ≥ {qwE}, attractiveness ≥ {qwA}); strategic bet (attractiveness ≥ {sbA}); follow-on; deprioritise (attractiveness < {dpA} or ease < {dpE})','Cell score = geography base + category adjustment + stated override; confidence and robustness shown separately']},
+ matrix:{h:'Eleven geographies × eight categories: India Tier 1 and 2 carry the quick wins; the GCC, Australia and sensor taps carry the bets; the US goes through the OEM route.',b:['Quick wins: {QWT}','Strategic bets: {SBT}','Follow-on: {FON} cells served later with quick-win assets','Deprioritise: {DPN} cells, mostly PTMT-price tiers and gated developed-market categories','Each cell shows seven criterion scores with reasons, the indicative pool, a hypothesis and the test that would change it']},
+ portfolio:{h:'Take the quick wins first, test the bets in parallel with capped budgets, keep 10% for adjacencies.',b:['FY28–29: India South and West Tier 1 quick wins; SAFE, HUE, inserts and spares','FY28–29 in parallel: certification and distributor tests for the GCC, ANZ and the US waterway OEM route','FY30–31: follow-ons in India Tier 2 and new categories; first bet that passes its test enters','Effort split 70 / 20 / 10 across quick wins, strategic bets and adjacencies','Deprioritised cells carry a revisit trigger, not a permanent no']},
+ adjacency:{h:'Pursue institutional projects and midscale hotel owners now; pilot a US waterway OEM; park retailer private label.',b:['Scored 0–3 on prize, margin, fit and readiness, minus risk penalties for brand dilution, payment, concentration and policy volatility','Pursue now: institutional projects via EPC contractors and housing boards; midscale hotel owners and conversions in India','Pilot: NSF-certified polymer waterways for US brands (India pays ~13–14% vs China ~41%); GeM listing; chain brand standards (back-of-house); GCC hotels; spares contracts','Park: finished private label for retailers; Indian platform private label; housing tenders abroad','JJM tap bundling belongs to Topline, never the NuFlow brand (bib cocks clear near ₹52)']},
+ tests:{h:'Test the shakiest calls first: each hypothesis has a test, a budget, a time box and a kill criterion.',b:['Quick wins tested through sample flats, studios, dealer clusters and spec-pack approvals (₹3–20 lakh, 3–6 months)','Strategic bets tested through certification pre-assessments and distributor letters of intent (₹6–15 lakh, 5–9 months)','Scale on reorder ≥ 60% and gross margin ≥ 50%; kill on reorder < 40% or returns > 1%','Bets scale when the barrier is removed within budget; killed when a test costs over twice its budget or fails','Low-confidence and low-robustness calls are listed first']},
+ evidence:{h:'Scores rest on sourced market facts and stated judgement; every input is tagged.',b:['Sourced: IMARC, Mordor, Anand Rathi, CPWD DSR 2023, GeM, PMAY, JJM, GSO, SASO, SANS, WRAS, NSF, WaterMark, tariff notices (US Section 301, CETA, CEPA, ECTA), company filings','Derived: geography pools, category pools, size bands, gross-margin bands','Assumed: GCC, Africa, South-East Asia and Europe totals; category share profiles; all criterion scores','Unverified: AITIGA duty on 8481.80, Section 232 coverage of brass faucets, Saudi mandatory-list status for taps']}
+};
+const EV=[
+ /* markets */
+ ['src','Market size','India bathware ₹331 bn FY25; faucets ₹202 bn (61%); ~10% CAGR to FY29; replacement 20–25%','Anand Rathi, Mar 2026','https://dsijpub.s3.ap-south-1.amazonaws.com/productAttachment/premarketreports/Building_Materials_Thematic_150326.pdf'],
+ ['src','Market size','Cera tier mix Tier 1 36% / Tier 2 23% / Tier 3 41%; price mix premium 42 / mid 36 / entry 22','Cera Q2 FY26 earnings call','https://www.cera-india.com/sites/default/files/2025-11/Q2%20FY%202025-26%20Earnings%20Call%20Transcript.pdf'],
+ ['der','Market size','India geography pools: South Tier 1 ≈ ₹2,650 Cr; West and North Tier 1 ≈ ₹4,700 Cr; Tier 2 ≈ ₹5,050 Cr; Tier 3 and rural ≈ ₹7,470 Cr (₹88 = USD 1)','Calculated from Anand Rathi, Cera tier mix and Anarock city launches','#'],
+ ['src','Market size','India faucets: bathroom sink faucets 76.8% of revenue; kitchen fastest at 7.5%; automatic faucets 8.0% CAGR; brass 48.7%; South 34%','Mordor Intelligence','https://www.mordorintelligence.com/industry-reports/india-faucet-market'],
+ ['src','Market size','Saudi faucets USD 307 mn (2025) → 541 mn (2034), 6.5%','IMARC','https://www.imarcgroup.com/saudi-arabia-faucet-market'],
+ ['src','Market size','UAE 8.7% CAGR; LAMEA 9%','KBV Research','https://www.kbvresearch.com/lamea-faucet-market'],
+ ['src','Market size','South Africa faucets USD 148 mn (2025) → 259 mn (2034), 6.2%','IMARC','https://www.imarcgroup.com/south-africa-faucet-market'],
+ ['src','Market size','Bangladesh taps above Tk 1,500 Cr, ~15% a year; local Tk 20–500, imports Tk 500–5,000','The Business Standard (BD)','https://www.tbsnews.net/node/510118'],
+ ['src','Market size','Philippines faucets USD 270 mn → 473 mn (2034), 6.2%; metal 75%','IMARC','https://www.imarcgroup.com/philippines-faucet-market'],
+ ['src','Market size','Europe faucets 7.1% CAGR; Germany USD 3.8 bn by 2031','KBV Research','https://www.kbvresearch.com/europe-faucet-market'],
+ ['src','Market size','US faucets USD 6.02 bn (2024) → 9.38 bn (2032), 5.9%','Fortune Business Insights','https://www.fortunebusinessinsights.com/amp/u-s-faucet-market-109161'],
+ ['src','Market size','Australia faucets USD 661 mn → 1,143 mn (2034), 6.3%; metal ~67%','IMARC','https://www.imarcgroup.com/australia-faucet-market'],
+ ['ass','Market size','GCC total USD 900 mn, Africa USD 500 mn, South Asia USD 200 mn, South-East Asia USD 1.6 bn, Europe USD 9 bn','Analyst assumption scaled from the country figures above','#'],
+ ['ass','Market size','Category share profiles by geography type (e.g. India basin mixers 28%, utility 22%, health faucets 10%; developed markets basin 32%, showers 26%)','Analyst assumption; Mordor gives bathroom sink faucets 77% in India','#'],
+ /* price and cost */
+ ['src','Price realisation','HUE H1 hero mixer landed cost ₹1,299 vs ₹1,565 for brass; PPSU waterway is an NSF 61-listed grade; lead-free DZR insert','NuFlow material bill v2 (project doc, Nov 2026)','#'],
+ ['src','Price realisation','CPWD DSR 2023: PTMT bib cock ₹126–197; PTMT pillar cock ₹208–224; CP brass bib cock ₹507; CP brass angle valve ₹574; brass IR sensor pillar cock ₹8,804; single-lever wall mixer ₹6,941','CPWD Delhi Schedule of Rates 2023, Vol 2','https://d2facr2wyrkyod.cloudfront.net/Data+Bank/CPWD+DSR/2023+DSR+2.pdf'],
+ ['src','Price realisation','GeM direct-buy PTMT bib tap at ₹131 (MRP ₹146)','GeM','https://org.gem.gov.in/cart/cart_global/directBuy/999608'],
+ ['src','Price realisation','JJM PTMT bib cock at about ₹52, MOQ 100','TradeIndia listing','https://www.tradeindia.com/products/plastic-round-jal-jeevan-mission-jjm-up-ptmt-bib-cock-c9429924.html'],
+ ['src','Price realisation','UK basin mixers from £31; GROHE Start £60–213; Hansgrohe Talis £204–252','PriceSpy UK','https://pricespy.co.uk/c/basin-mixers'],
+ ['src','Price realisation','US tiers: budget USD 30–100, mid 100–300, premium 300–600','Plumbing Directory','https://theplumbingdirectory-resources.pages.dev/faucets/cost/typical-faucet-price-ranges'],
+ ['src','Price realisation','Kenya ABS shattaf KES 1,500 (China) to KES 6,100 (Ideal Standard)','Ideal Ceramics Kenya','https://www.idealceramics.com/wilro-abs-chrome-plated-shattaf-set.html'],
+ ['der','Price realisation','HUE nets ≈ ₹3,000 after GST and 29% channel margin on ₹4,999 MRP ⇒ ≈57% gross margin','Calculated','#'],
+ /* trade */
+ ['src','Trade','US: Section 301 tariffs from 24 Jul 2026 — India 10% on top of MFN; China and Vietnam 12.5% plus existing Section 301 (25%)','Global Trade Alert; Holland & Knight','https://globaltradealert.org/blog/forced-labour-section-301-final-action'],
+ ['src','Trade','US Supreme Court struck down IEEPA tariffs (20 Feb 2026); Section 122 10% for 150 days','Cozen O\'Connor','https://www.cozen.com/news-resources/publications/2026/supreme-court-rules-president-lacks-ieepa-tariff-authority-president-imposes-section-122-tariffs'],
+ ['der','Trade','Duty on faucets into the US: India ≈13–14%, China ≈40.5–41.5% (MFN 3–4% + layers)','Calculated from Wove tariff lines (aggregator)','https://tariffs.wove.com/us/tariff/8481.80.50.60'],
+ ['unv','Trade','Whether Section 232 derivative tariffs cover brass faucets','Not confirmed','https://www.greenworldwide.com/section-232-expansion-applies-full-value-tariffs-to-additional-steel-aluminum-and-copper-derivative-products/'],
+ ['src','Trade','India–UK CETA in force 15 Jul 2026; ~99% of Indian lines duty-free','The Tribune','https://www.tribuneindia.com/news/world/india-uk-trade-agreement-will-enter-into-force-from-july-15-foreign-secy-misri-calls-announcement-one-of-the-key-outcomes/'],
+ ['src','Trade','India–EU FTA concluded Jan 2026; signing Dec 2026; in force Feb–Mar 2027; EU duty on basin taps 2.2%','SteelOrbis; TariffNumber','https://www.steelorbis.com/steel-news/latest-news/india-eu-fta-to-be-signed-in-dec-2026-to-take-effect-from-feb-mar-2027-1460720.htm'],
+ ['src','Trade','India–UAE CEPA (May 2022) and India–Oman CEPA (1 Jun 2026); GCC FTA talks from Sep 2026','RASP; Business Standard; Outlook Business','https://www.business-standard.com/economy/news/india-oman-free-trade-pact-comes-into-force-126060101366_1.html'],
+ ['src','Trade','Australia removed all tariffs on Indian goods from 1 Jan 2026 under ECTA','Business Today','https://www.businesstoday.in/india/story/india-australia-trade-pact-hits-turning-point-as-australia-drops-all-tariffs-from-jan-2026-508571-2025-12-29'],
+ ['src','Trade','South Africa duty on taps 20% (EU and SADC 0%); Kenya EAC 25%','SARS; Pamoja (aggregator)','https://www.sars.gov.za/lapd-lsec-ce-ta-2013-24-notice-r269-gg-36338-12-april-2013'],
+ ['unv','Trade','AITIGA (ASEAN–India) treatment of 8481.80; China near duty-free under ACFTA','Not confirmed','https://treayo.com/en/compare/848180'],
+ /* regulation */
+ ['src','Regulation','GeM catalogue for IS 9763 plastic bib, pillar, angle and stop valves (PTMT body ≥ 2.5 mm)','GeM','https://bidplus.gem.gov.in/bidding/bid/showCatalogue/Mm7QwLUw8igk1PjSt1H05Kqh4jfORkRKR9ZqQTEgMBI'],
+ ['src','Regulation','GCC water-efficiency regulation for taps; Qatar Green Label mandatory 24 Feb 2026; Saudi SABER + SASO 2655','SGS; Qatar Tribune; Intertek','https://www.sgs.com/en-kw/news/2024/01/water-efficiency-labels-introduced-for-water-fixtures-products-across-the-gulf-region'],
+ ['src','Regulation','South Africa SANS 1021 and SANS 1808-37 cover plastic taps and mixers','CLASP gap analysis','https://www.clasp.ngo/wp-content/uploads/2022/03/Final-South-African-Tap-and-Flow-Rate-Gap-Analysis-Report-CLASP.pdf'],
+ ['src','Regulation','WRAS tests non-metallic materials to BS 6920; EU positive list binding 31 Dec 2026; EN 817 mixing-valve endurance','WRAS; H2O Register; Genorma','https://wrasapprovals.co.uk/material-approvals'],
+ ['src','Regulation','NSF/ANSI 61 tests plastic parts; NSF/ANSI 372 lead-free; ASME A112.18.1; WaterSense 1.5 gpm','WaterWorld/NSF; EPA','https://www.waterworld.com/residential-commercial/article/14308803/nsf-international-faucet-foundations'],
+ ['src','Regulation','WaterMark schedule lists plastic taps under AS 3718; lead-free from 1 May 2026','ABCB','https://cpd.nccb.gov.au/schedule-products-tapware'],
+ ['src','Regulation','Certification cost: NSF USD 5–15k per family; WRAS £3–8k per model; WaterMark A$4–10k','Alibaba seller guide (secondary)','https://seller.alibaba.com/blogs/2026/southeast-asia/bathroom-faucets/certification-standards-guide-alibaba-b2b'],
+ /* competition and channel */
+ ['src','Competition','Jaquar ~60% of organised bath fittings (company claim); FY26 ₹8,703 Cr','Business Today, Sep 2026','https://www.businesstoday.in/magazine/deep-dive/story/jaquar-group-the-unlisted-manufacturing-giant-552780-2026-09-02'],
+ ['src','Competition','Regional strength: Cera weak in East, AP and Telangana; Parryware TN and East; Hindware East, South, West','BOBCAPS, Oct 2024','https://www.barodaetrade.com/Reports/BuildingMaterial-SectorUpdate3Oct24-Research.pdf'],
+ ['src','Competition','Pipe makers entering bathware: Prince (Bhuj Phase 2, Apr 2026), Astral (33,000 pipe dealers)','Whalesbook; Indian Retailer','https://www.whalesbook.com/corporate-news/English/industrial-goodsservices/Prince-Pipes-Finalizes-Bhuj-Facility-Phase-2-for-Bathware-Growth/69d4e74131d4f2ab481165b4'],
+ ['src','Competition','Sloan strategic investment in Essel (Apr 2026), B2B to builders and infrastructure','Outlook Business','https://www.outlookbusiness.com/corporate/sloan-valve-makes-strategic-investment-in-india-to-tap-sanitaryware-boom'],
+ ['src','Competition','Cera Polipluz and Truflo by Hindware entered PTMT at the value end','Cera; ThePrint','https://theprint.in/ani-press-releases/truflo-by-hindware-forays-into-ptmt-faucets-and-accessories-commences-commercial-production-from-its-second-state-of-the-art-plant/1326050'],
+ ['src','Competition','Shattaf standard in nearly all Saudi bathrooms (supplier claim)','Kanzo','https://kanzotechfaucets.com/blog/shattaf-mixers-explained-what-they-are-and-why-saudi-bathrooms-need-one/'],
+ ['src','Channel','BirlaNu: 5,937 dealers, 90.66% of sales via dealers, 30 plants, 53 depots, 27 states','BirlaNu BRSR FY26','https://nsearchives.nseindia.com/corporate/HIL_10072026125427_SE_intimation-BRSR_Signed.pdf'],
+ ['src','Channel','Home Depot caps any single foreign country at 10% of purchases','Benzinga (Q1 2025 call)','https://drupal-cloudfront.benzinga.com/25/05/45536279/home-depot-accelerates-supply-chain-diversification-shifts-sourcing-away-from-single-countries-management-sees-li'],
+ /* adjacencies */
+ ['src','OEM','Masco buys finished plumbing products from Asia; Fortune Brands booked USD 146.6 mn of IEEPA tariff refunds and is cutting EMEA manufacturing','SEC 10-K / 10-Q','https://www.sec.gov/Archives/edgar/data/0001519751/000119312526447277/fbin-20260926.htm'],
+ ['src','OEM','Globe Union (Gerber, Danze) runs a Global OEM and Private Brand unit; gross margin 33.8%','Globe Union Q1 2025','https://en.globeunion.com/wp-content/uploads/2025/06/Q1_2025_GU-Group_Profile.pdf'],
+ ['src','OEM','Delta DIAMOND Seal uses a PEX waterway; Kohler patent (May 2024) for a non-metal body moulded around a waterway','Delta catalogue; TREA patent record','https://trea.com/information/composite-faucet-body-and-internal-waterway/patentgrant/ccc7f829-afbc-4e2f-8656-7876306b45cf'],
+ ['src','OEM','World HS 8481 exports USD 87.5 bn (2024), China USD 18 bn; India HS 848180 USD 1.08 bn (2023), 26% to the USA','IndexBox; TrendEconomy','https://trendeconomy.com/data/h2/India/8481'],
+ ['src','Tenders','GeM GMV ₹5 lakh Cr in FY26; MSEs 68% of orders','IANS','https://ianslive.in/gem-hits-rs-18-lakh-crore-gmv-mark-mses-account-for-68-pc--20260406164235'],
+ ['src','Tenders','Example GeM bid: small mixed lots of PTMT and CP taps, EMD ₹44,500, ePBG 3%','NIT Kurukshetra','https://nitkkr.ac.in/wp-content/uploads/2024/12/GeM-Bidding-7288992-2.pdf'],
+ ['src','Tenders','PMAY-U 2.0: 20.80 lakh sanctions by Oct 2026; Jun 2026 mix BLC 12.99 lakh, AHP 1.81 lakh','Organiser; PMAY-U newsletter','https://pmay-urban.gov.in/uploads/newsletters/30th-June-2026.pdf'],
+ ['src','Tenders','Jal Jeevan Mission: 15.79 crore connections (81.6%); extended to Dec 2028','Rajya Sabha reply via NewKerala','https://www.newkerala.com/news/a/1579-crore-rural-households-given-tap-water-connections-246.htm'],
+ ['src','Tenders','MSME Samadhaan pending ₹31,039 Cr (Dec 2025); government and PSUs ~40% of delays','Swarajya','https://swarajyamag.com/amp/story/economy/beyond-gem-portal-why-msmes-are-still-waiting-for-their-money-from-government-buyers'],
+ ['src','Tenders','Kenya affordable housing: 140,000–162,000 units under construction; 97% local materials on a flagship estate','Radio Generation; Kenya Today','https://kenya-today.com/report-president-ruto-announces-end-to-imported-lifts-for-affordable-housing-boosts-local-manufacturing-13305/'],
+ ['src','Tenders','Saudi local content: 10% evaluation price preference for local bids','Clyde & Co','https://www.clydeco.com/en/insights/2026/09/local-content-in-saudi'],
+ ['src','Hospitality','Avendra USD 16 bn spend, plumbing not a listed category; Hilton Supply Management files plumbing under MRO','BLLA; SCW','https://scw-mag.com/news/hilton-supply-management-setting-the-gold-standard-in-global-hospitality-procurement/'],
+ ['src','Hospitality','Hansgrohe names Marriott and Radisson as global project partners (terms undisclosed)','BW Hotelier','https://bwhotelier.com/article/hansgrohe%E2%80%99s-sustainable-solutions-for-hotels-416031'],
+ ['src','Hospitality','India hotel pipeline 906 projects, 118,334 rooms (Q4 2025); conversions 20–25% of signings','Mordor; HVS','https://www.hospitalitynet.org/opinion/4103176.html'],
+ ['unv','Hospitality','No chain-wide fittings rate contract (Jaquar–Lemon Tree, Kohler–Marriott, GROHE–Accor) found','Not found','#'],
+ /* scoring */
+ ['ass','Scoring','All 1–5 criterion scores, category adjustments and overrides','Analyst judgement against the rubric anchors','#'],
+ ['ass','Scoring','Default weights: size 30, growth 30, price 40 (attractiveness); regulation 25, competition 25, channel 30, readiness 20 (ease)','Analyst choice; adjustable','#'],
+ ['ass','Scoring','Robustness = share of 300 random weight sets (each weight × 0.5–1.5) that keep the cell\'s call','Model method','#']
+];
+const TH0={qwA:50,qwE:65,sbA:58,sbE:30,dpA:45,dpE:40};
+const clamp=v=>Math.max(1,Math.min(5,v));
+function sizeScore(usd){return usd<30?1:usd<90?2:usd<270?3:usd<800?4:5}
+function cellScores(g,c){
+  const o=OVR[g.id+'|'+c.id]||{};
+  const pool=g.mkt*SHARE[g.sh][c.id]/100;
+  const s={sz:o.szAbs?o.szAbs:sizeScore(pool)};
+  ['gr','pr','rg','cp','ch','rw'].forEach(k=>s[k]=clamp(g.s[k]+(c.a[k]||0)+(o[k]||0)));
+  return {s,pool,o};
+}
+function axes(s,W){
+  const n=v=>(v-1)/4*100;
+  const A=(n(s.sz)*W.sz+n(s.gr)*W.gr+n(s.pr)*W.pr)/(W.sz+W.gr+W.pr);
+  const E=(n(s.rg)*W.rg+n(s.cp)*W.cp+n(s.ch)*W.ch+n(s.rw)*W.rw)/(W.rg+W.cp+W.ch+W.rw);
+  return {A,E,T:(A+E)/2};
+}
+function classify(s,ax,TH){
+  const gate=s.rg<=2||s.ch<=2||s.rw<=2;
+  if(ax.E>=TH.qwE&&ax.A>=TH.qwA&&!gate)return 'qw';
+  if(ax.A>=TH.sbA&&ax.E>=TH.sbE)return 'sb';
+  if(ax.A<TH.dpA||ax.E<TH.dpE)return 'dp';
+  return 'fo';
+}
+/* ---------- helpers ---------- */
+const $=(s,r=document)=>r.querySelector(s);
+const fmt=(n,d=0)=>Number(n).toLocaleString('en-IN',{maximumFractionDigits:d,minimumFractionDigits:d});
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+const TAGN={src:'sourced',der:'derived',ass:'assumed',unv:'unverified'};
+const CLN={qw:'Quick win',sb:'Strategic bet',fo:'Follow-on',dp:'Deprioritise'};
+const CONFN={H:'High',M:'Medium',L:'Low'};
+const usd=v=>v>=1000?'USD '+fmt(v/1000,1)+' bn':'USD '+fmt(v,v<10?1:0)+' mn';
+const inr=v=>'₹'+fmt(v*88/10,0)+' Cr';
+const CK=CRIT.map(c=>c.k);
+const CN=Object.fromEntries(CRIT.map(c=>[c.k,c.n]));
+
+/* ---------- state ---------- */
+const W0=Object.fromEntries(CRIT.map(c=>[c.k,c.w]));
+let W=Object.assign({},W0);
+let TH=Object.assign({},TH0);
+let CELLS=[],SEL=null;
+
+/* ---------- engine ---------- */
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function compute(){
+  const R=rng(7);const draws=[];
+  for(let i=0;i<300;i++){const w={};CK.forEach(k=>w[k]=W[k]*(0.5+R()));draws.push(w)}
+  CELLS=[];
+  GEOS.forEach(g=>CATS.forEach(c=>{
+    const r=cellScores(g,c);const ax=axes(r.s,W);const cl=classify(r.s,ax,TH);
+    let same=0;draws.forEach(w=>{if(classify(r.s,axes(r.s,w),TH)===cl)same++});
+    const conf=['H','M','L'][Math.max(['H','M','L'].indexOf(g.conf),['H','M','L'].indexOf(c.conf))];
+    CELLS.push({g,c,s:r.s,pool:r.pool,o:r.o,ax,cl,rob:same/300,conf,id:g.id+'|'+c.id});
+  }));
+}
+function weakest(cell){
+  const all=CK.map(k=>({k,v:cell.s[k]}));
+  const ease=all.filter(x=>['rg','cp','ch','rw'].includes(x.k)).sort((a,b)=>a.v-b.v);
+  const attr=all.filter(x=>['sz','gr','pr'].includes(x.k)).sort((a,b)=>a.v-b.v);
+  const strong=all.filter(x=>['sz','gr','pr'].includes(x.k)).sort((a,b)=>b.v-a.v);
+  return {ease:ease[0],attr:attr[0],strong:strong[0],min:all.sort((a,b)=>a.v-b.v)[0]};
+}
+function reason(cell,k){
+  if(k==='sz'){return cell.o.szAbs?cell.o.note:`${usd(cell.pool)} pool = ${cell.g.n} market ${usd(cell.g.mkt)} × ${SHARE[cell.g.sh][cell.c.id]}% category share.`}
+  const parts=[cell.g.t[k]];
+  const adj=cell.c.a[k]||0;if(adj)parts.push(`Category ${adj>0?'+':''}${adj}: ${cell.c.t[k]}`);
+  const ov=cell.o[k];if(ov)parts.push(`Override ${ov>0?'+':''}${ov}: ${cell.o.note}`);
+  return parts.join(' ');
+}
+const REVIVE={rg:'the certification route shortens or a polymer-body precedent appears',cp:'an incumbent exits or a white-space gap opens',ch:'a distributor, platform or partner offers a route',pr:'landed cost falls or market price points rise',rw:'the product is engineered and tested for this market',sz:'the pool grows or becomes addressable',gr:'growth data shows above 7% a year'};
+function hyp(cell){
+  const w=weakest(cell),g=cell.g,c=cell.c;
+  if(cell.cl==='qw')return `${c.n} in ${g.n} can be entered with the existing ${c.line} range and channel, at 50%+ gross margin, within 12 months of entering.`;
+  if(cell.cl==='sb')return `${c.n} in ${g.n} is worth having (strongest: ${CN[w.strong.k].toLowerCase()} ${w.strong.v}/5), but ${CN[w.ease.k].toLowerCase()} (${w.ease.v}/5) must be solved first; a capped investment can solve it.`;
+  if(cell.cl==='fo')return `${c.n} in ${g.n} becomes worth serving once quick-win or bet assets exist there; no dedicated spend now.`;
+  return `${c.n} in ${g.n} is not worth pursuing now: ${CN[w.min.k].toLowerCase()} scores ${w.min.v}/5.`;
+}
+function testOf(cell){
+  const g=cell.g,c=cell.c,w=weakest(cell);
+  if(cell.cl==='qw')return {test:g.test[0]+'; '+c.ctest,budget:g.test[1],time:g.test[2],scale:'Reorder ≥ 60% within 90 days and gross margin ≥ 50%',kill:'Reorder < 40%, returns > 1%, or margin < 45%'};
+  if(cell.cl==='sb')return {test:g.test[0]+'; '+c.ctest,budget:g.test[1],time:g.test[2],scale:`${CN[w.ease.k]} raised to 3+ within budget (certificate, distributor letter or engineered SKU)`,kill:'Test costs more than twice its budget, fails, or the attractiveness assumption breaks'};
+  if(cell.cl==='fo')return {test:'No dedicated test; watch the quick-win and bet results in this geography',budget:'—',time:'—',scale:'Assets in place in this geography',kill:'—'};
+  const rv=g.revisit&&g.revisit!=='n/a'?g.revisit:REVIVE[w.min.k];
+  return {test:'None now',budget:'—',time:'—',scale:'Revisit when '+rv.charAt(0).toLowerCase()+rv.slice(1),kill:'—'};
+}
+
+/* ---------- tooltip ---------- */
+const tip=$('#tip');
+document.addEventListener('mousemove',e=>{const t=e.target.closest&&e.target.closest('[data-tip]');if(!t){tip.style.opacity=0;return}
+  tip.textContent=t.getAttribute('data-tip');tip.style.opacity=1;const x=Math.min(e.clientX+14,innerWidth-tip.offsetWidth-8);tip.style.left=x+'px';tip.style.top=(e.clientY+16)+'px'});
+document.addEventListener('focusin',e=>{const t=e.target.closest&&e.target.closest('[data-tip]');if(t){const r=t.getBoundingClientRect();tip.textContent=t.getAttribute('data-tip');tip.style.opacity=1;tip.style.left=r.left+'px';tip.style.top=(r.bottom+6)+'px'}});
+document.addEventListener('focusout',()=>{tip.style.opacity=0});
+
+/* ---------- routing ---------- */
+const VIEWS=['answer','rubric','matrix','portfolio','adjacency','tests','evidence'];
+function route(){let h=location.hash.slice(1);if(!VIEWS.includes(h))h='answer';
+  VIEWS.forEach(v=>{$('#v-'+v).hidden=v!==h;const a=$('#t-'+v);if(v===h)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
+  window.scrollTo(0,0);try{$('#t-'+h).scrollIntoView({block:'nearest',inline:'nearest'})}catch(e){}}
+addEventListener('hashchange',route);
+
+/* ---------- slides ---------- */
+const byCl=k=>CELLS.filter(x=>x.cl===k).sort((a,b)=>b.ax.T-a.ax.T);
+const short=x=>`${x.c.n.split(',')[0]} – ${x.g.n.replace('India · ','India ')}`;
+function slideText(k){
+  const qw=byCl('qw'),sb=byCl('sb');
+  const sub=s=>s.replace('{QWN}',qw.length).replace('{SBN}',sb.length).replace('{FON}',byCl('fo').length).replace('{DPN}',byCl('dp').length)
+    .replace('{QWT}',qw.slice(0,6).map(short).join('; ')).replace('{SBT}',sb.slice(0,6).map(short).join('; '))
+    .replace(/\{(qwE|qwA|sbA|sbE|dpA|dpE)\}/g,(m,p)=>TH[p]);
+  const s=SLIDES[k];return {h:sub(s.h),b:s.b.map(sub)};
+}
+function mountSlides(){
+  document.querySelectorAll('.slide').forEach(el=>{
+    const draw=()=>{const s=slideText(el.dataset.slide);
+      el.innerHTML=`<div><span class="eyebrow">Slide headline</span><b>${esc(s.h)}</b></div><button class="btn" type="button">Copy slide notes</button>`;
+      const btn=$('button',el);
+      btn.addEventListener('click',async()=>{const s2=slideText(el.dataset.slide);
+        const txt=s2.h+'\n\n'+s2.b.map(x=>'• '+x).join('\n')+'\n\nFramed as hypotheses to test. Source: NuFlow Opportunity Prioritisation Model, Nov 2026';
+        let ok=false;try{await navigator.clipboard.writeText(txt);ok=true}catch(e){}
+        if(ok){btn.textContent='Copied';btn.classList.add('ok');setTimeout(()=>{btn.textContent='Copy slide notes';btn.classList.remove('ok')},1800)}
+        else{let box=$('.copybox',el);if(!box){box=document.createElement('div');box.className='copybox';box.innerHTML='<p class="note" style="margin-bottom:6px">Clipboard is blocked here. Select and copy the text below.</p><textarea readonly></textarea>';el.appendChild(box)}
+          const ta=$('textarea',box);ta.value=txt;ta.focus();ta.select()}});
+    };
+    el._draw=draw;draw();
+  });
+}
+function redrawSlides(){document.querySelectorAll('.slide').forEach(el=>el._draw&&el._draw())}
+
+/* ---------- answer ---------- */
+function renderAnswer(){
+  const n=k=>byCl(k).length;
+  const adjv=ADJ.map(a=>adjScore(a));
+  $('#kpis').innerHTML=[
+    ['dark','Quick wins',n('qw'),'of 88 cells; in '+[...new Set(byCl('qw').map(x=>x.g.n.replace('India · ','India ')))].join(', ')],
+    ['','Strategic bets',n('sb'),'capped, staged investments to remove one barrier'],
+    ['','Deprioritise now',n('dp'),'each with a revisit trigger'],
+    ['','Adjacencies to pursue now',adjv.filter(x=>x.v==='go').length+' <small>of '+ADJ.length+'</small>',adjv.filter(x=>x.v==='pilot').length+' to pilot, '+adjv.filter(x=>x.v==='park').length+' parked']
+  ].map(k=>`<div class="kpi ${k[0]}"><span class="eyebrow" ${k[0]?'style="color:inherit;opacity:.7"':''}>${k[1]}</span><div class="v num">${k[2]}</div><div class="l">${k[3]}</div></div>`).join('');
+  const q=byCl('qw'),s=byCl('sb');
+  const weakQ=q.filter(x=>x.rob<0.75||x.conf==='L');
+  const items=[
+   `<b>Home market first, on every axis.</b> All India Tier 1 cells except luxury and sensor taps are quick wins: the certifications are already in the plan, BirlaNu owns the channel, and the hero mixer clears about 57% gross margin. India Tier 2 follows with the same product once dealer clusters exist.`,
+   `<b>The best export entry is a shattaf, not a mixer.</b> GCC health faucets and shattafs are the only quick win outside India: they sit in nearly every Gulf WC, ABS is already accepted so polymer carries no credibility discount, and the water labels test flow, not material. It still depends on recruiting a distributor, so its robustness is ${fmt((CELLS.find(x=>x.id==='GCC|HF')||{rob:0}).rob*100)}%.`,
+   `<b>Strategic bets cluster where polymer is already allowed.</b> GCC mixers, showers and safety fittings (labels, CEPA zero duty in the UAE and Oman); Australia's basin mixers and aged-care safety fittings (WaterMark lists plastic taps, the lead-free rule favours non-copper bodies, zero duty); and SENSE sensor taps in India, which are attractive but need new electronics.`,
+   `<b>Europe and the US are deprioritised for finished goods, not for NuFlow.</b> They score highest on size and price, but ease is under 30 out of 100: WRAS and the EU positive list, NSF 61/372 and cUPC, entrenched brands and big-box line reviews. The US route is the OEM adjacency, where India's tariff is about 13–14% against 41% for China.`,
+   `<b>Price, not demand, deprioritises the bottom of India.</b> Tier 3 utility taps score 1 on competition and price: PTMT sells at ₹130–500 and CPWD pays ₹126–224. A polymer-hybrid with a mid-premium cost base cannot win there without a separate value brand.`,
+   `<b>Two adjacencies to pursue now, five to pilot, four to park.</b> Institutional projects through BirlaNu's EPC contractors and midscale hotel owners score highest. The lead pilot is a US polymer-waterway OEM supply, attractive but exposed to tariff swings. Retailer private label and JJM taps under the NuFlow name are parked; JJM belongs to Topline.`,
+   `<b>${weakQ.length} quick wins are shaky</b> (robustness under 75% or low confidence): ${weakQ.slice(0,4).map(short).join('; ')||'none'}. They are listed first in the Test plan.`];
+  $('#finds').innerHTML=items.map(i=>`<li><div>${i}</div></li>`).join('');
+  const row=x=>`<tr><td><b>${esc(x.c.n)}</b><br><span style="color:var(--muted);font-size:12px">${esc(x.g.n)}</span></td><td class="n">${fmt(x.ax.A)}</td><td class="n">${fmt(x.ax.E)}</td><td class="n">${fmt(x.rob*100)}%</td><td>${CONFN[x.conf]}</td></tr>`;
+  const head='<tr><th>Cell</th><th class="n">Attract.</th><th class="n">Ease</th><th class="n">Robust</th><th>Confidence</th></tr>';
+  $('#topqw').innerHTML=head+q.slice(0,8).map(row).join('');
+  $('#topsb').innerHTML=head+s.slice(0,8).map(row).join('');
+}
+
+/* ---------- rubric ---------- */
+function renderRubric(){
+  $('#crittab').innerHTML='<tr><th>Criterion</th><th>Axis</th><th class="c">1</th><th class="c">2</th><th class="c">3</th><th class="c">4</th><th class="c">5</th><th>Why this scale</th></tr>'+
+   CRIT.map(c=>`<tr><td><b>${c.n}</b>${c.brief==='added'?'<i class="tag der">added</i>':'<i class="tag src">from brief</i>'}<br><span style="font-size:12px;color:var(--ink2)">${esc(c.q)}</span></td><td>${c.ax==='A'?'Attractiveness':'Ease'}</td>${c.a.map(x=>`<td style="font-size:12.5px">${esc(x)}</td>`).join('')}<td style="font-size:12.5px;min-width:220px">${esc(c.why)}</td></tr>`).join('');
+}
+function mountRubric(){
+  $('#wts').innerHTML='<h4 style="margin:4px 0">Attractiveness axis</h4>'+CRIT.filter(c=>c.ax==='A').map(wsl).join('')+'<h4 style="margin:10px 0 4px">Ease axis</h4>'+CRIT.filter(c=>c.ax==='E').map(wsl).join('');
+  CRIT.forEach(c=>$('#w_'+c.k).addEventListener('input',e=>{W[c.k]=+e.target.value;$('#o_w_'+c.k).textContent=e.target.value;update()}));
+  $('#wreset').addEventListener('click',()=>{W=Object.assign({},W0);CRIT.forEach(c=>{$('#w_'+c.k).value=W[c.k];$('#o_w_'+c.k).textContent=W[c.k]});update()});
+  const TL=[['qwE','Quick win: minimum ease'],['qwA','Quick win: minimum attractiveness'],['sbA','Strategic bet: minimum attractiveness'],['sbE','Strategic bet: minimum ease'],['dpA','Deprioritise below this attractiveness'],['dpE','Deprioritise below this ease']];
+  $('#thr').innerHTML=TL.map(t=>`<label class="sl" for="t_${t[0]}"><span>${t[1]}</span><input type="range" id="t_${t[0]}" min="0" max="100" step="1" value="${TH[t[0]]}"><output id="o_t_${t[0]}">${TH[t[0]]}</output></label>`).join('');
+  TL.forEach(t=>$('#t_'+t[0]).addEventListener('input',e=>{TH[t[0]]=+e.target.value;$('#o_t_'+t[0]).textContent=e.target.value;update()}));
+}
+const wsl=c=>`<label class="sl" for="w_${c.k}"><span>${c.n}</span><input type="range" id="w_${c.k}" min="0" max="60" step="5" value="${W[c.k]}"><output id="o_w_${c.k}">${W[c.k]}</output></label>`;
+function syncThrText(){document.querySelectorAll('[data-t]').forEach(el=>el.textContent=TH[el.dataset.t])}
+
+/* ---------- matrix ---------- */
+let MV='call';
+function mountMatrix(){
+  const opts=[['call','Call'],['T','Combined'],['A','Attractiveness'],['E','Ease']].concat(CRIT.map(c=>[c.k,c.n]));
+  $('#mview').innerHTML=opts.map(o=>`<button class="chip" data-v="${o[0]}" aria-pressed="${o[0]===MV}">${o[1]}</button>`).join('');
+  $('#mview').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;MV=b.dataset.v;[...$('#mview').children].forEach(x=>x.setAttribute('aria-pressed',x===b));renderMatrix()});
+  $('#pm').addEventListener('click',e=>{const b=e.target.closest('button.cell');if(!b)return;SEL=b.dataset.id;renderMatrix();renderDetail();$('#detail').scrollIntoView({behavior:'smooth',block:'start'})});
+}
+function heatCls(v,max){const r=v/max;return r>=0.8?'w4':r>=0.6?'w3':r>=0.4?'w2':r>=0.2?'w1':'r0'}
+function renderMatrix(){
+  let o='<div class="hh"></div>'+CATS.map(c=>`<div class="hh">${esc(c.n)}<br><span style="text-transform:none;letter-spacing:0">${esc(c.line)}</span></div>`).join('');
+  GEOS.forEach(g=>{o+=`<div class="hr">${esc(g.n)}</div>`;CATS.forEach(c=>{const x=CELLS.find(y=>y.id===g.id+'|'+c.id);
+    let cls,main,sub;
+    if(MV==='call'){cls='cl-'+x.cl;main=fmt(x.ax.T);sub=CLN[x.cl]}
+    else if(['T','A','E'].includes(MV)){const v=x.ax[MV];cls=heatCls(v,100);main=fmt(v);sub=CLN[x.cl]}
+    else{const v=x.s[MV];cls=heatCls(v-1,4);main=v;sub=CLN[x.cl]}
+    o+=`<button class="cell ${cls}" type="button" data-id="${x.id}" aria-pressed="${SEL===x.id}" data-tip="${esc(c.n)} · ${esc(g.n)}: ${CLN[x.cl]}; attractiveness ${fmt(x.ax.A)}, ease ${fmt(x.ax.E)}; robustness ${fmt(x.rob*100)}%; confidence ${CONFN[x.conf]}"><b>${main}</b><small>${sub}</small>${MV==='call'?`<span class="rob">${fmt(x.rob*100)}%</span>`:''}</button>`})});
+  $('#pm').style.gridTemplateColumns=`minmax(130px,1.3fr) repeat(${CATS.length},minmax(84px,1fr))`;
+  $('#pm').innerHTML=o;
+}
+function renderDetail(){
+  const x=CELLS.find(y=>y.id===SEL)||byCl('qw')[0];if(!x)return;SEL=x.id;
+  const t=testOf(x);
+  $('#detail').innerHTML=`<div class="sec-top"><div class="sec-h" style="margin:0"><span class="eyebrow">Selected cell</span><h3 style="font-size:22px">${esc(x.c.n)} · ${esc(x.g.n)}</h3>
+   <p><span class="pill ${x.cl}">${CLN[x.cl]}</span> <span class="pill">Attractiveness ${fmt(x.ax.A)}</span> <span class="pill">Ease ${fmt(x.ax.E)}</span> <span class="pill">Robustness ${fmt(x.rob*100)}%</span> <span class="pill">Confidence ${CONFN[x.conf]}</span> <span class="pill">Pool ${usd(x.pool)} (${inr(x.pool)})</span> <span class="pill">Line: ${esc(x.c.line)}</span></p></div></div>
+   <div class="crit" style="margin-top:12px">${CK.map(k=>`<div class="cc"><div class="eyebrow">${CN[k]}</div><div class="s">${x.s[k]}<span style="font-size:13px;color:var(--muted)">/5</span></div><div class="dots">${[1,2,3,4,5].map(i=>`<i class="${i<=x.s[k]?'on':''}"></i>`).join('')}</div><div class="n">${esc(CRIT.find(c=>c.k===k).a[x.s[k]-1])}</div></div>`).join('')}</div>
+   <div class="tw" style="margin-top:12px"><table><tr><th>Criterion</th><th class="n">Score</th><th>Reason</th></tr>${CK.map(k=>`<tr><td><b>${CN[k]}</b></td><td class="n">${x.s[k]}</td><td>${esc(reason(x,k))}</td></tr>`).join('')}</table></div>
+   <div class="grid g2" style="margin-top:12px"><div class="note good"><b>Hypothesis.</b> ${esc(hyp(x))}</div><div class="note"><b>Test.</b> ${esc(t.test)}. Budget ${esc(t.budget)}, time ${esc(t.time)}. <b>Scale or revisit:</b> ${esc(t.scale)}. <b>Kill:</b> ${esc(t.kill)}.</div></div>`;
+}
+function renderCatGeo(){
+  $('#cattab').innerHTML='<tr><th>Category</th><th>NuFlow line</th><th>Adjustments (growth, price, regulation, competition, channel, readiness)</th><th>Confidence</th></tr>'+CATS.map(c=>`<tr><td><b>${esc(c.n)}</b></td><td>${esc(c.line)}</td><td class="mono" style="font-size:12px">${['gr','pr','rg','cp','ch','rw'].map(k=>{const v=c.a[k]||0;return (v>0?'+':'')+v}).join(' / ')}</td><td>${CONFN[c.conf]}</td></tr>`).join('');
+  $('#geotab').innerHTML='<tr><th>Geography</th><th class="n">Faucet market</th><th>Base (growth, price, regulation, competition, channel, readiness)</th><th>Confidence</th></tr>'+GEOS.map(g=>`<tr><td><b>${esc(g.n)}</b><br><span style="font-size:12px;color:var(--muted)">${esc(g.sub)}</span></td><td class="n">${usd(g.mkt)}<i class="tag ${g.mt}">${TAGN[g.mt]}</i></td><td class="mono" style="font-size:12px">${['gr','pr','rg','cp','ch','rw'].map(k=>g.s[k]).join(' / ')}</td><td>${CONFN[g.conf]}</td></tr>`).join('');
+}
+
+/* ---------- portfolio ---------- */
+let FG='all',FC='all';
+function mountPortfolio(){
+  $('#fg').innerHTML=[['all','All']].concat(GEOS.map(g=>[g.id,g.n.replace('India · ','India ')])).map(o=>`<button class="chip" data-f="${o[0]}" aria-pressed="${o[0]===FG}">${esc(o[1])}</button>`).join('');
+  $('#fc').innerHTML=[['all','All']].concat(CATS.map(c=>[c.id,c.n])).map(o=>`<button class="chip" data-f="${o[0]}" aria-pressed="${o[0]===FC}">${esc(o[1])}</button>`).join('');
+  $('#fg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;FG=b.dataset.f;[...$('#fg').children].forEach(x=>x.setAttribute('aria-pressed',x===b));renderBubble()});
+  $('#fc').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;FC=b.dataset.f;[...$('#fc').children].forEach(x=>x.setAttribute('aria-pressed',x===b));renderBubble()});
+  $('#bub').addEventListener('click',e=>{const c=e.target.closest('[data-id]');if(!c)return;SEL=c.dataset.id;location.hash='#matrix';setTimeout(()=>{renderMatrix();renderDetail()},0)});
+}
+function renderBubble(){
+  const X0=70,X1=740,Y0=470,Y1=20,sx=v=>X0+v/100*(X1-X0),sy=v=>Y0-v/100*(Y0-Y1);
+  const col={qw:'var(--s3)',sb:'var(--s1)',fo:'var(--f1)',dp:'var(--neutral)'};
+  let o='';
+  o+=`<rect x="${sx(TH.qwE)}" y="${sy(100)}" width="${sx(100)-sx(TH.qwE)}" height="${sy(TH.qwA)-sy(100)}" fill="var(--s3)" opacity=".08"/>`;
+  o+=`<rect x="${sx(TH.sbE)}" y="${sy(100)}" width="${sx(TH.qwE)-sx(TH.sbE)}" height="${sy(TH.sbA)-sy(100)}" fill="var(--s1)" opacity=".07"/>`;
+  o+=`<rect x="${sx(0)}" y="${sy(TH.dpA)}" width="${sx(100)-sx(0)}" height="${sy(0)-sy(TH.dpA)}" fill="var(--neutral)" opacity=".08"/>`;
+  for(let i=0;i<=100;i+=20){o+=`<line x1="${sx(i)}" x2="${sx(i)}" y1="${Y1}" y2="${Y0}" stroke="var(--line)"/><text class="m" x="${sx(i)}" y="${Y0+16}" font-size="10.5" text-anchor="middle">${i}</text><line x1="${X0}" x2="${X1}" y1="${sy(i)}" y2="${sy(i)}" stroke="var(--line)"/><text class="m" x="${X0-8}" y="${sy(i)+4}" font-size="10.5" text-anchor="end">${i}</text>`}
+  o+=`<text x="${(X0+X1)/2}" y="${Y0+36}" font-size="12" text-anchor="middle" style="fill:var(--ink)">Ease of entry (0–100) →</text><text x="16" y="${(Y0+Y1)/2}" font-size="12" text-anchor="middle" transform="rotate(-90 16 ${(Y0+Y1)/2})" style="fill:var(--ink)">Attractiveness (0–100) →</text>`;
+  o+=`<text x="${sx(99)}" y="${sy(98)}" font-size="11" text-anchor="end" style="fill:var(--s3);font-weight:600">Quick wins</text><text x="${sx(TH.sbE)+6}" y="${sy(98)}" font-size="11" style="fill:var(--s1);font-weight:600">Strategic bets</text><text x="${sx(99)}" y="${sy(TH.dpA)+16}" font-size="11" text-anchor="end" style="fill:var(--muted);font-weight:600">Deprioritise below</text>`;
+  const pts=CELLS.filter(x=>(FG==='all'||x.g.id===FG)&&(FC==='all'||x.c.id===FC)).sort((a,b)=>b.pool-a.pool);
+  const seen={};const LAB=new Set(['IS1|SP','GCC|HF','GCC|BM','ANZ|SF','ANZ|BM','IS1|SN','IW1|BM','IT2|BM']);
+  pts.forEach((x,i)=>{const key=Math.round(x.ax.E)+'_'+Math.round(x.ax.A);seen[key]=(seen[key]||0)+1;const j=(seen[key]-1);
+    const cx=sx(x.ax.E)+(j%4)*7-(j?10:0),cy=sy(x.ax.A)-Math.floor(j/4)*7,r=3+Math.sqrt(x.pool)*0.33;
+    o+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${col[x.cl]}" fill-opacity=".72" stroke="var(--surface)" stroke-width="1.2" tabindex="0" data-id="${x.id}" style="cursor:pointer" data-tip="${esc(x.c.n)} · ${esc(x.g.n)}: ${CLN[x.cl]}; attractiveness ${fmt(x.ax.A)}, ease ${fmt(x.ax.E)}; pool ${usd(x.pool)}"/>`;
+    if((x.cl==='qw'||x.cl==='sb')&&(FG!=='all'||FC!=='all'||LAB.has(x.id)))o+=`<text x="${cx+r+3}" y="${cy+4}" font-size="10" style="fill:var(--ink)">${x.g.id}·${x.c.id}</text>`;
+  });
+  $('#bub').innerHTML=o+`<text x="${X0}" y="${Y0+54}" font-size="10.5">Codes: geography·category (BM basin mixers, UT utility, HF health faucets, SH showers, SN sensor, SF safety,</text><text x="${X0}" y="${Y0+68}" font-size="10.5">SP spares, DL designer). Labels show selected cells; filter to label all. Select a bubble to open the cell.</text>`;
+  $('#bub').setAttribute('viewBox','0 0 760 552');
+}
+const PHASE={IS1:['FY28–29','Launch'],IW1:['FY30–31','Extend'],IT2:['FY31–32','Extend'],GCC:['Test FY28–29; enter FY32','Bet'],ANZ:['Test FY29–30; enter FY33+','Bet'],IT3:['After a value variant','Later'],AFR:['Revisit FY32+','Later'],SAS:['Revisit FY32+','Later'],SEA:['Revisit on AITIGA parity','Later'],EUR:['Revisit after EU FTA (2027)','Later'],USA:['Via OEM adjacency','Adjacency']};
+function renderSeq(){
+  $('#seq').innerHTML='<tr><th>When</th><th>Geography</th><th>Quick wins</th><th>Strategic bets</th><th>Follow-on</th></tr>'+GEOS.map(g=>{const cs=CELLS.filter(x=>x.g.id===g.id);const L=k=>cs.filter(x=>x.cl===k).map(x=>x.c.n.split(',')[0]).join(', ')||'–';
+    return `<tr><td><b>${PHASE[g.id][0]}</b></td><td>${esc(g.n)}</td><td>${esc(L('qw'))}</td><td>${esc(L('sb'))}</td><td>${esc(L('fo'))}</td></tr>`}).join('');
+  const parts=[['Quick wins',70,'var(--s3)'],['Strategic bets',20,'var(--s1)'],['Adjacencies',10,'var(--s4)']];let x=0;
+  $('#split').innerHTML=parts.map(p=>{const w=p[1]/100*540;const s=`<rect x="${x}" y="8" width="${w-2}" height="40" rx="4" fill="${p[2]}"/><text x="${x+4}" y="66" font-size="12" style="fill:var(--ink);font-weight:600">${p[1]}%</text><text x="${x+4}" y="81" font-size="11">${p[0]}</text>`;x+=w;return s}).join('')+'<text x="0" y="104" font-size="11">Share of management time and discretionary spend, FY28–FY30.</text>';
+}
+
+/* ---------- adjacency ---------- */
+function adjScore(a){const base=ADJ_CRIT.reduce((s,c)=>s+a.s[c.k],0),pen=ADJ_RISK.reduce((s,r)=>s+a.r[r.k],0),t=base+pen;return {base,pen,t,v:t>=8?'go':t>=5?'pilot':'park'}}
+const VN={go:'Pursue now',pilot:'Pilot',park:'Park'};
+function renderAdj(){
+  $('#adjrub').innerHTML='<tr><th>Criterion</th><th class="c">0</th><th class="c">1</th><th class="c">2</th><th class="c">3</th></tr>'+ADJ_CRIT.map(c=>`<tr><td><b>${c.n}</b></td>${c.a.map(x=>`<td style="font-size:12.5px">${esc(x)}</td>`).join('')}</tr>`).join('')+
+   `<tr><td><b>Risk penalties</b></td><td colspan="4" style="font-size:12.5px">0 to −2 each for ${ADJ_RISK.map(r=>r.n.toLowerCase()).join(', ')}. <b>Verdict</b>: total of 8 or more out of 12 = pursue now; 5–7 = pilot with a capped test; 4 or less = park. A coarser scale than the matrix because these are go / pilot / park choices with few options, and the risks (who pays, how late, and whether it feeds a competitor) matter as much as the upside.</td></tr>`;
+  let grp='';
+  $('#adjlist').innerHTML=ADJ.map(a=>{const sc=adjScore(a);let h='';if(a.grp!==grp){grp=a.grp;h=`<h3 style="margin-top:8px">${esc(grp)}</h3>`}
+    return h+`<article class="seg"><div class="ic">${sc.t}<small>of 12</small></div><div>
+     <h3 style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">${esc(a.n)}<span class="pill ${sc.v==='go'?'qw':sc.v==='pilot'?'sb':'dp'}">${VN[sc.v]}</span></h3>
+     <div class="mini" style="margin-top:6px">${ADJ_CRIT.map(c=>`<span>${c.n} ${a.s[c.k]}</span>`).join('')}${ADJ_RISK.map(r=>a.r[r.k]?`<span style="color:var(--t-unv)">${r.n} ${a.r[r.k]}</span>`:'').join('')}</div>
+     <dl><dt>What</dt><dd>${esc(a.what)}</dd><dt>Why this score</dt><dd>${esc(a.why)}</dd><dt>Preconditions</dt><dd>${a.pre.map(esc).join('; ')}</dd><dt>Test</dt><dd>${esc(a.test)}</dd><dt>Scale if</dt><dd>${esc(a.scale)}</dd><dt>Kill if</dt><dd>${esc(a.kill)}</dd><dt>Risks</dt><dd>${esc(a.risks)}</dd></dl></div></article>`}).join('');
+}
+
+/* ---------- tests ---------- */
+let TF='all';
+function mountTests(){
+  $('#tf').innerHTML=[['all','Quick wins and bets'],['qw','Quick wins'],['sb','Strategic bets'],['weak','Shaky calls first']].map(o=>`<button class="chip" data-f="${o[0]}" aria-pressed="${o[0]===TF}">${o[1]}</button>`).join('');
+  $('#tf').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;TF=b.dataset.f;[...$('#tf').children].forEach(x=>x.setAttribute('aria-pressed',x===b));renderTests()});
+}
+function renderTests(){
+  const cr={L:0,M:1,H:2};
+  let list=CELLS.filter(x=>x.cl==='qw'||x.cl==='sb');
+  if(TF==='qw'||TF==='sb')list=list.filter(x=>x.cl===TF);
+  if(TF==='weak')list=list.filter(x=>x.rob<0.75||x.conf==='L');
+  list.sort((a,b)=>(cr[a.conf]-cr[b.conf])||(a.rob-b.rob));
+  $('#testtab').innerHTML='<tr><th>Cell</th><th>Call</th><th class="n">Robust</th><th>Conf.</th><th>Hypothesis</th><th>Test</th><th>Budget</th><th>Time</th><th>Scale if</th><th>Kill if</th></tr>'+list.map(x=>{const t=testOf(x);
+    return `<tr><td><b>${esc(x.c.n)}</b><br><span style="font-size:12px;color:var(--muted)">${esc(x.g.n)}</span></td><td><span class="pill ${x.cl}">${CLN[x.cl]}</span></td><td class="n">${fmt(x.rob*100)}%</td><td>${CONFN[x.conf]}</td><td style="min-width:220px">${esc(hyp(x))}</td><td style="min-width:220px">${esc(t.test)}</td><td>${esc(t.budget)}</td><td>${esc(t.time)}</td><td>${esc(t.scale)}</td><td>${esc(t.kill)}</td></tr>`}).join('');
+}
+
+/* ---------- evidence ---------- */
+let ef='all';
+function mountEvidence(){
+  $('#ef').innerHTML=[['all','All'],['src','Sourced'],['der','Derived'],['ass','Assumed'],['unv','Unverified']].map(x=>`<button class="chip" data-f="${x[0]}" aria-pressed="${x[0]==='all'}">${x[1]}</button>`).join('');
+  $('#ef').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;ef=b.dataset.f;[...$('#ef').children].forEach(x=>x.setAttribute('aria-pressed',x===b));renderEvidence()});
+}
+function renderEvidence(){
+  $('#etab').innerHTML='<tr><th>Tag</th><th>Area</th><th>Fact</th><th>Source</th></tr>'+EV.filter(r=>ef==='all'||r[0]===ef).map(r=>`<tr><td><i class="tag ${r[0]}" style="margin:0">${TAGN[r[0]]}</i></td><td>${esc(r[1])}</td><td>${esc(r[2])}</td><td>${r[4]==='#'?esc(r[3]):`<a href="${r[4]}" target="_blank" rel="noopener">${esc(r[3])}</a>`}</td></tr>`).join('');
+}
+
+/* ---------- update loop ---------- */
+let pend=null;
+function update(){clearTimeout(pend);pend=setTimeout(()=>{compute();syncThrText();renderAnswer();renderMatrix();renderDetail();renderBubble();renderSeq();renderTests();redrawSlides()},60)}
+
+/* ---------- boot ---------- */
+compute();
+mountRubric();mountMatrix();mountPortfolio();mountTests();mountEvidence();mountSlides();
+syncThrText();renderRubric();renderAnswer();renderMatrix();renderDetail();renderCatGeo();renderBubble();renderSeq();renderAdj();renderTests();renderEvidence();route();
+</script></body></html>
